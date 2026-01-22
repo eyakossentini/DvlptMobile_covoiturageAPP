@@ -3,12 +3,12 @@ import '../models/address.dart';
 class Ride {
   int? id;
   final int driverId;
-
-  //utilisation ADDRESS dans RIDE
   final Address from;
   final Address to;
   final String date;
+  final String time;
   final double price;
+  int durationMinutes;
   final int seats;
 
   Ride({
@@ -17,7 +17,9 @@ class Ride {
     required this.from,
     required this.to,
     required this.date,
+    required this.time,
     required this.price,
+    required this.durationMinutes,
     required this.seats,
   });
 
@@ -35,7 +37,9 @@ class Ride {
       'toLng': to.lng,
 
       'date': date,
+      'time': time,
       'price': price,
+      'durationMinutes': durationMinutes,
       'seats': seats,
     };
   }
@@ -54,7 +58,9 @@ class Ride {
       to: Address(label: map['toLabel'], lat: map['toLat'], lng: map['toLng']),
 
       date: map['date'],
+      time: map['time'],
       price: map['price'],
+      durationMinutes: map['durationMinutes'],
       seats: map['seats'],
     );
   }

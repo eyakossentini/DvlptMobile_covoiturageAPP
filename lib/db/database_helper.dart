@@ -19,58 +19,27 @@ class DatabaseHelper {
 
   Future<Database> get database async {
     if (_database != null) return _database!;
-    if (!kIsWeb) {
-      _database = await _initDatabase();
-      return _database!;
-    }
-    // Sur Web, SQLite n’existe pas
-    throw Exception("SQLite not supported on Web (kIsWeb=true).");
+    _database = await _initDatabase();
+    return _database!;
   }
 
   Future<Database> _initDatabase() async {
-    String path = join(await getDatabasesPath(), 'carpooling.db');
-    return await openDatabase(
+    if (kIsWeb) {
+      throw Exception("SQLite not supported on Web.");
+    }
+
+    final path = join(await getDatabasesPath(), 'carpooling.db');
+    return openDatabase(
       path,
-      version: 3,
+      version: 4, // ✅ IMPORTANT: bump version
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
   }
 
-  Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
-    // Migration rides (Address columns)
-    if (oldVersion < 2) {
-      await db.execute('DROP TABLE IF EXISTS rides');
-      await db.execute('''
-        CREATE TABLE rides(
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          driverId INTEGER,
-          fromLabel TEXT,
-          fromLat REAL,
-          fromLng REAL,
-          toLabel TEXT,
-          toLat REAL,
-          toLng REAL,
-          date TEXT,
-          price REAL,
-          seats INTEGER
-        )
-      ''');
-    }
-
-    // Migration reservations
-    if (oldVersion < 3) {
-      await db.execute('''
-        CREATE TABLE IF NOT EXISTS reservations(
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          rideId INTEGER,
-          passengerId INTEGER,
-          date TEXT
-        )
-      ''');
-    }
-  }
-
+  // --------------------------
+  // CREATE TABLES
+  // --------------------------
   Future<void> _onCreate(Database db, int version) async {
     await db.execute('''
       CREATE TABLE users(
@@ -99,17 +68,60 @@ class DatabaseHelper {
       )
     ''');
 
+    // ✅ UNIQUE(rideId, passengerId) empêche doublon
     await db.execute('''
       CREATE TABLE reservations(
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         rideId INTEGER,
         passengerId INTEGER,
-        date TEXT
+        date TEXT,
+        UNIQUE(rideId, passengerId)
       )
     ''');
   }
 
-  // Insert User
+  // --------------------------
+  // MIGRATIONS
+  // --------------------------
+  Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    // Migration rides (Address columns) si tu venais d’une ancienne version
+    if (oldVersion < 2) {
+      await db.execute('DROP TABLE IF EXISTS rides');
+      await db.execute('''
+        CREATE TABLE rides(
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          driverId INTEGER,
+          fromLabel TEXT,
+          fromLat REAL,
+          fromLng REAL,
+          toLabel TEXT,
+          toLat REAL,
+          toLng REAL,
+          date TEXT,
+          price REAL,
+          seats INTEGER
+        )
+      ''');
+    }
+
+    // Migration reservations (UNIQUE) => version 4
+    if (oldVersion < 4) {
+      await db.execute('DROP TABLE IF EXISTS reservations');
+      await db.execute('''
+        CREATE TABLE reservations(
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          rideId INTEGER,
+          passengerId INTEGER,
+          date TEXT,
+          UNIQUE(rideId, passengerId)
+        )
+      ''');
+    }
+  }
+
+  // --------------------------
+  // USERS
+  // --------------------------
   Future<int> insertUser(User user) async {
     if (kIsWeb) {
       final userMap = user.toMap();
@@ -121,7 +133,6 @@ class DatabaseHelper {
     return db.insert('users', user.toMap());
   }
 
-  // Get User
   Future<User?> getUser(String email, String password) async {
     if (kIsWeb) {
       try {
@@ -154,7 +165,51 @@ class DatabaseHelper {
     return null;
   }
 
-  // Insert Ride
+  Future<int> getUserCount(String email) async {
+    if (kIsWeb) {
+      return _webMockUsers.where((u) => u['email'] == email).length;
+    }
+    final db = await database;
+    final x = await db.rawQuery('SELECT COUNT(*) FROM users WHERE email = ?', [
+      email,
+    ]);
+    return Sqflite.firstIntValue(x) ?? 0;
+  }
+
+  Future<List<User>> getAllUsers() async {
+    if (kIsWeb) {
+      return _webMockUsers.map((e) => User.fromMap(e)).toList();
+    }
+    final db = await database;
+    final maps = await db.query('users');
+    return maps.map((m) => User.fromMap(m)).toList();
+  }
+
+  Future<int> updateUser(User user) async {
+    if (kIsWeb) {
+      final index = _webMockUsers.indexWhere((u) => u['id'] == user.id);
+      if (index != -1) {
+        _webMockUsers[index] = user.toMap();
+        return 1;
+      }
+      return 0;
+    }
+    final db = await database;
+    return db.update('users', user.toMap(), where: 'id = ?', whereArgs: [user.id]);
+  }
+
+  Future<int> deleteUser(int id) async {
+    if (kIsWeb) {
+      _webMockUsers.removeWhere((u) => u['id'] == id);
+      return 1;
+    }
+    final db = await database;
+    return db.delete('users', where: 'id = ?', whereArgs: [id]);
+  }
+
+  // --------------------------
+  // RIDES
+  // --------------------------
   Future<int> insertRide(Ride ride) async {
     if (kIsWeb) {
       final rideMap = ride.toMap();
@@ -166,7 +221,6 @@ class DatabaseHelper {
     return db.insert('rides', ride.toMap());
   }
 
-  // Get ride by id
   Future<Ride?> getRideById(int id) async {
     if (kIsWeb) {
       try {
@@ -178,12 +232,11 @@ class DatabaseHelper {
     }
 
     final db = await database;
-    final maps = await db.query('rides', where: 'id = ?', whereArgs: [id]);
+    final maps = await db.query('rides', where: 'id = ?', whereArgs: [id], limit: 1);
     if (maps.isNotEmpty) return Ride.fromMap(maps.first);
     return null;
   }
 
-  // Get All Rides
   Future<List<Ride>> getAllRides() async {
     if (kIsWeb) {
       return _webMockRides.map((e) => Ride.fromMap(e)).toList();
@@ -193,90 +246,54 @@ class DatabaseHelper {
     return maps.map((m) => Ride.fromMap(m)).toList();
   }
 
-  // Get User Count
-  Future<int> getUserCount(String email) async {
-    if (kIsWeb) {
-      return _webMockUsers.where((u) => u['email'] == email).length;
-    }
-    final db = await database;
-    final x = await db.rawQuery('SELECT COUNT (*) from users WHERE email = ?', [
-      email,
-    ]);
-    return Sqflite.firstIntValue(x) ?? 0;
-  }
+  // --------------------------
+  // RESERVATIONS
+  // --------------------------
 
-  // Get All Users (for Admin)
-  Future<List<User>> getAllUsers() async {
+  /// check si déjà réservé
+  Future<Reservation?> getReservationForPassengerOnRide(int passengerId, int rideId) async {
     if (kIsWeb) {
-      return _webMockUsers.map((e) => User.fromMap(e)).toList();
-    }
-    final db = await database;
-    final maps = await db.query('users');
-    return maps.map((m) => User.fromMap(m)).toList();
-  }
-
-  // Update User
-  Future<int> updateUser(User user) async {
-    if (kIsWeb) {
-      final index = _webMockUsers.indexWhere((u) => u['id'] == user.id);
-      if (index != -1) {
-        _webMockUsers[index] = user.toMap();
-        return 1;
+      try {
+        final m = _webMockReservations.firstWhere(
+          (r) => r['passengerId'] == passengerId && r['rideId'] == rideId,
+        );
+        return Reservation.fromMap(m);
+      } catch (_) {
+        return null;
       }
-      return 0;
     }
+
     final db = await database;
-    return await db.update(
-      'users',
-      user.toMap(),
-      where: 'id = ?',
-      whereArgs: [user.id],
+    final rows = await db.query(
+      'reservations',
+      where: 'passengerId = ? AND rideId = ?',
+      whereArgs: [passengerId, rideId],
+      limit: 1,
     );
+    if (rows.isEmpty) return null;
+    return Reservation.fromMap(rows.first);
   }
 
-  // Delete User
-  Future<int> deleteUser(int id) async {
-    if (kIsWeb) {
-      final index = _webMockUsers.indexWhere((u) => u['id'] == id);
-      if (index != -1) {
-        _webMockUsers.removeAt(index);
-        return 1;
-      }
-      return 0;
-    }
-    final db = await database;
-    return await db.delete('users', where: 'id = ?', whereArgs: [id]);
-  }
-
-  // Insert Reservation
-  Future<int> insertReservation(Reservation reservation) async {
-    if (kIsWeb) {
-      final map = reservation.toMap();
-      map['id'] = _webMockReservations.length + 1;
-      _webMockReservations.add(map);
-      return map['id'] as int;
-    }
-    final db = await database;
-    return db.insert('reservations', reservation.toMap());
-  }
-
-  /// Réserve 1 place: crée reservation + décrémente seats.
-  /// Retourne true si ok, false si plus de place.
+  /// ✅ Réserve 1 place si disponible + empêche doublon
   Future<bool> bookRideAndDecrementSeats({
     required int rideId,
     required int passengerId,
     required String dateIso,
   }) async {
+    // ---- WEB MOCK ----
     if (kIsWeb) {
-      // --- WEB MOCK ---
-      // 1) trouver ride
       final rideIndex = _webMockRides.indexWhere((r) => r['id'] == rideId);
       if (rideIndex == -1) return false;
+
+      // ✅ déjà réservé ?
+      final already = _webMockReservations.any(
+        (r) => r['rideId'] == rideId && r['passengerId'] == passengerId,
+      );
+      if (already) return false;
 
       final seats = (_webMockRides[rideIndex]['seats'] as int?) ?? 0;
       if (seats <= 0) return false;
 
-      // 2) insert reservation mock
       final resId = _webMockReservations.length + 1;
       _webMockReservations.add({
         'id': resId,
@@ -285,54 +302,64 @@ class DatabaseHelper {
         'date': dateIso,
       });
 
-      // 3) decrement seats
       _webMockRides[rideIndex]['seats'] = seats - 1;
       return true;
     }
 
-    // --- SQLITE ---
+    // ---- SQLITE ----
     final db = await database;
 
-    return await db.transaction((txn) async {
-      // 1) Lire seats actuel
-      final rows = await txn.query(
-        'rides',
-        columns: ['seats'],
-        where: 'id = ?',
-        whereArgs: [rideId],
-        limit: 1,
-      );
+    try {
+      return await db.transaction((txn) async {
+        // ✅ déjà réservé ?
+        final exists = await txn.query(
+          'reservations',
+          where: 'rideId = ? AND passengerId = ?',
+          whereArgs: [rideId, passengerId],
+          limit: 1,
+        );
+        if (exists.isNotEmpty) return false;
 
-      if (rows.isEmpty) return false;
+        // seats ?
+        final rows = await txn.query(
+          'rides',
+          columns: ['seats'],
+          where: 'id = ?',
+          whereArgs: [rideId],
+          limit: 1,
+        );
+        if (rows.isEmpty) return false;
 
-      final seats = (rows.first['seats'] as int?) ?? 0;
-      if (seats <= 0) return false;
+        final seats = (rows.first['seats'] as int?) ?? 0;
+        if (seats <= 0) return false;
 
-      // 2) Insert reservation
-      await txn.insert('reservations', {
-        'rideId': rideId,
-        'passengerId': passengerId,
-        'date': dateIso,
+        // insert reservation
+        await txn.insert('reservations', {
+          'rideId': rideId,
+          'passengerId': passengerId,
+          'date': dateIso,
+        });
+
+        // decrement seats
+        await txn.update(
+          'rides',
+          {'seats': seats - 1},
+          where: 'id = ?',
+          whereArgs: [rideId],
+        );
+
+        return true;
       });
-
-      // 3) Decrement seats
-      await txn.update(
-        'rides',
-        {'seats': seats - 1},
-        where: 'id = ?',
-        whereArgs: [rideId],
-      );
-
-      return true;
-    });
+    } on DatabaseException catch (e) {
+      // ✅ si UNIQUE déclenche erreur => déjà réservé
+      if (e.isUniqueConstraintError()) return false;
+      rethrow;
+    }
   }
 
-  // Get reservations by passenger
   Future<List<Reservation>> getReservationsByPassenger(int passengerId) async {
     if (kIsWeb) {
-      final list = _webMockReservations
-          .where((r) => r['passengerId'] == passengerId)
-          .toList();
+      final list = _webMockReservations.where((r) => r['passengerId'] == passengerId).toList();
       return list.map((e) => Reservation.fromMap(e)).toList();
     }
 
@@ -341,13 +368,54 @@ class DatabaseHelper {
       'reservations',
       where: 'passengerId = ?',
       whereArgs: [passengerId],
+      orderBy: 'id DESC',
     );
     return maps.map((e) => Reservation.fromMap(e)).toList();
   }
 
-  Future<List<Map<String, dynamic>>> getReservationsForDriver(
-    int driverId,
-  ) async {
+  Future<void> deleteReservationAndIncrementSeats(int reservationId) async {
+    if (kIsWeb) {
+      final idx = _webMockReservations.indexWhere((r) => r['id'] == reservationId);
+      if (idx == -1) return;
+
+      final rideId = _webMockReservations[idx]['rideId'] as int?;
+      _webMockReservations.removeAt(idx);
+
+      if (rideId != null) {
+        final rideIndex = _webMockRides.indexWhere((r) => r['id'] == rideId);
+        if (rideIndex != -1) {
+          final seats = (_webMockRides[rideIndex]['seats'] as int?) ?? 0;
+          _webMockRides[rideIndex]['seats'] = seats + 1;
+        }
+      }
+      return;
+    }
+
+    final db = await database;
+    await db.transaction((txn) async {
+      final res = await txn.query(
+        'reservations',
+        columns: ['rideId'],
+        where: 'id = ?',
+        whereArgs: [reservationId],
+        limit: 1,
+      );
+      if (res.isEmpty) return;
+
+      final rideId = res.first['rideId'] as int;
+
+      await txn.delete(
+        'reservations',
+        where: 'id = ?',
+        whereArgs: [reservationId],
+      );
+
+      await txn.rawUpdate('UPDATE rides SET seats = seats + 1 WHERE id = ?', [rideId]);
+    });
+  }
+
+  // Gérer les réservations conducteur (tu peux garder ton code rawQuery actuel si tu veux)
+  Future<List<Map<String, dynamic>>> getReservationsForDriver(int driverId) async {
     if (kIsWeb) {
       final result = <Map<String, dynamic>>[];
 
@@ -358,7 +426,6 @@ class DatabaseHelper {
         final ride = await getRideById(rideId);
         if (ride == null || ride.driverId != driverId) continue;
 
-        // trouver le passager dans users
         final passengerId = r['passengerId'] as int?;
         Map<String, dynamic>? passenger;
         try {
@@ -379,35 +446,34 @@ class DatabaseHelper {
     }
 
     final db = await database;
-
     final rows = await db.rawQuery(
       '''
-    SELECT 
-      res.id as resId,
-      res.rideId as rideId,
-      res.passengerId as passengerId,
-      res.date as resDate,
+      SELECT 
+        res.id as resId,
+        res.rideId as rideId,
+        res.passengerId as passengerId,
+        res.date as resDate,
 
-      r.id as rId,
-      r.driverId as driverId,
-      r.fromLabel as fromLabel,
-      r.fromLat as fromLat,
-      r.fromLng as fromLng,
-      r.toLabel as toLabel,
-      r.toLat as toLat,
-      r.toLng as toLng,
-      r.date as rideDate,
-      r.price as price,
-      r.seats as seats,
+        r.id as rId,
+        r.driverId as driverId,
+        r.fromLabel as fromLabel,
+        r.fromLat as fromLat,
+        r.fromLng as fromLng,
+        r.toLabel as toLabel,
+        r.toLat as toLat,
+        r.toLng as toLng,
+        r.date as rideDate,
+        r.price as price,
+        r.seats as seats,
 
-      u.name as passengerName,
-      u.phone as passengerPhone
-    FROM reservations res
-    INNER JOIN rides r ON r.id = res.rideId
-    INNER JOIN users u ON u.id = res.passengerId
-    WHERE r.driverId = ?
-    ORDER BY res.id DESC
-  ''',
+        u.name as passengerName,
+        u.phone as passengerPhone
+      FROM reservations res
+      INNER JOIN rides r ON r.id = res.rideId
+      INNER JOIN users u ON u.id = res.passengerId
+      WHERE r.driverId = ?
+      ORDER BY res.id DESC
+      ''',
       [driverId],
     );
 
@@ -443,54 +509,5 @@ class DatabaseHelper {
         'fromLabel': row['fromLabel'] ?? ride.from.label,
       };
     }).toList();
-  }
-
-  // Delete reservation by id and increment seat
-  Future<void> deleteReservationAndIncrementSeats(int reservationId) async {
-    if (kIsWeb) {
-      // trouver reservation
-      final idx = _webMockReservations.indexWhere(
-        (r) => r['id'] == reservationId,
-      );
-      if (idx == -1) return;
-      final rideId = _webMockReservations[idx]['rideId'] as int?;
-      _webMockReservations.removeAt(idx);
-
-      if (rideId != null) {
-        final rideIndex = _webMockRides.indexWhere((r) => r['id'] == rideId);
-        if (rideIndex != -1) {
-          final seats = (_webMockRides[rideIndex]['seats'] as int?) ?? 0;
-          _webMockRides[rideIndex]['seats'] = seats + 1;
-        }
-      }
-      return;
-    }
-
-    final db = await database;
-    await db.transaction((txn) async {
-      // 1) get rideId
-      final res = await txn.query(
-        'reservations',
-        columns: ['rideId'],
-        where: 'id = ?',
-        whereArgs: [reservationId],
-        limit: 1,
-      );
-      if (res.isEmpty) return;
-
-      final rideId = res.first['rideId'] as int;
-
-      // 2) delete reservation
-      await txn.delete(
-        'reservations',
-        where: 'id = ?',
-        whereArgs: [reservationId],
-      );
-
-      // 3) increment seats
-      await txn.rawUpdate('UPDATE rides SET seats = seats + 1 WHERE id = ?', [
-        rideId,
-      ]);
-    });
   }
 }

@@ -20,6 +20,9 @@ class _AddRideScreenState extends State<AddRideScreen> {
   final _formKey = GlobalKey<FormState>();
 
   final _dateController = TextEditingController();
+  final _timeController = TextEditingController();
+  final _durationController = TextEditingController();
+
   final _priceController = TextEditingController();
   final _seatsController = TextEditingController();
 
@@ -27,6 +30,23 @@ class _AddRideScreenState extends State<AddRideScreen> {
   Address? toAddress;
 
   bool _isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+
+    // ✅ date du jour par défaut
+    final now = DateTime.now();
+    _dateController.text =
+        '${now.day.toString().padLeft(2, '0')}/'
+        '${now.month.toString().padLeft(2, '0')}/'
+        '${now.year}';
+
+    // ✅ heure actuelle par défaut
+    final t = TimeOfDay.now();
+    _timeController.text =
+        '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
+  }
 
   Future<void> _pickFrom() async {
     final result = await Navigator.push<Address>(
@@ -45,15 +65,12 @@ class _AddRideScreenState extends State<AddRideScreen> {
     );
 
     if (!mounted) return;
-    if (result != null) {
-      setState(() => toAddress = result);
-    }
+    if (result != null) setState(() => toAddress = result);
   }
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
 
-    // validation map selection
     if (fromAddress == null || toAddress == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -74,12 +91,10 @@ class _AddRideScreenState extends State<AddRideScreen> {
         return;
       }
 
-      // Clean input
       final priceText = _priceController.text.replaceAll(
         RegExp(r'[^0-9.]'),
         '',
       );
-
       if (priceText.isEmpty) {
         setState(() => _isLoading = false);
         ScaffoldMessenger.of(
@@ -97,11 +112,15 @@ class _AddRideScreenState extends State<AddRideScreen> {
         return;
       }
 
+      final durationMin = int.tryParse(_durationController.text) ?? 0;
+
       final newRide = Ride(
         driverId: user.id!,
         from: fromAddress!,
         to: toAddress!,
         date: _dateController.text,
+        time: _timeController.text,
+        durationMinutes: durationMin,
         price: double.parse(priceText),
         seats: seats,
       );
@@ -129,7 +148,6 @@ class _AddRideScreenState extends State<AddRideScreen> {
     } catch (e) {
       if (!mounted) return;
       setState(() => _isLoading = false);
-
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text('Erreur : $e')));
@@ -139,7 +157,10 @@ class _AddRideScreenState extends State<AddRideScreen> {
   @override
   void dispose() {
     _dateController.dispose();
+    _timeController.dispose();
+    _durationController.dispose();
     _priceController.dispose();
+    _timeController.dispose();
     _seatsController.dispose();
     super.dispose();
   }
@@ -169,7 +190,6 @@ class _AddRideScreenState extends State<AddRideScreen> {
           key: _formKey,
           child: ListView(
             children: [
-              // FROM (Maps)
               ListTile(
                 title: Text(
                   fromAddress?.label ?? 'Choisir le départ sur la carte',
@@ -183,7 +203,6 @@ class _AddRideScreenState extends State<AddRideScreen> {
                 onTap: _pickFrom,
               ),
 
-              // TO (Maps)
               ListTile(
                 title: Text(
                   toAddress?.label ?? 'Choisir l\'arrivée sur la carte',
@@ -199,19 +218,76 @@ class _AddRideScreenState extends State<AddRideScreen> {
 
               const SizedBox(height: 12),
 
+              // ✅ Date picker
               TextFormField(
                 controller: _dateController,
+                readOnly: true,
                 decoration: const InputDecoration(
-                  labelText: 'Date (ex: 20/01/2026)',
+                  labelText: 'Date du trajet',
+                  hintText: 'jj/MM/aaaa',
+                  suffixIcon: Icon(Icons.calendar_month),
                 ),
+                onTap: () async {
+                  FocusScope.of(context).unfocus();
+                  final now = DateTime.now();
+                  final pickedDate = await showDatePicker(
+                    context: context,
+                    initialDate: now,
+                    firstDate: now,
+                    lastDate: DateTime(now.year + 2),
+                    locale: const Locale('fr', 'FR'),
+                  );
+
+                  if (pickedDate != null) {
+                    _dateController.text =
+                        '${pickedDate.day.toString().padLeft(2, '0')}/'
+                        '${pickedDate.month.toString().padLeft(2, '0')}/'
+                        '${pickedDate.year}';
+                  }
+                },
                 validator: (v) => (v == null || v.isEmpty) ? 'Requis' : null,
               ),
+
+              // ✅ Time picker
+              TextFormField(
+                controller: _timeController,
+                readOnly: true,
+                decoration: const InputDecoration(
+                  labelText: 'Heure du trajet',
+                  hintText: 'HH:mm',
+                  suffixIcon: Icon(Icons.access_time),
+                ),
+                onTap: () async {
+                  FocusScope.of(context).unfocus();
+                  final picked = await showTimePicker(
+                    context: context,
+                    initialTime: TimeOfDay.now(),
+                  );
+                  if (picked != null) {
+                    _timeController.text =
+                        '${picked.hour.toString().padLeft(2, '0')}:${picked.minute.toString().padLeft(2, '0')}';
+                  }
+                },
+                validator: (v) => (v == null || v.isEmpty) ? 'Requis' : null,
+              ),
+
+              // ✅ Duration
+              TextFormField(
+                controller: _durationController,
+                decoration: const InputDecoration(
+                  labelText: 'Durée estimée (minutes)',
+                  hintText: 'ex: 45',
+                ),
+                keyboardType: TextInputType.number,
+              ),
+
               TextFormField(
                 controller: _priceController,
                 decoration: const InputDecoration(labelText: 'Prix (TND)'),
                 keyboardType: TextInputType.number,
                 validator: (v) => (v == null || v.isEmpty) ? 'Requis' : null,
               ),
+
               TextFormField(
                 controller: _seatsController,
                 decoration: const InputDecoration(

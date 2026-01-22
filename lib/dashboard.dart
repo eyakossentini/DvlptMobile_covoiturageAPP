@@ -8,7 +8,7 @@ import 'package:provider/provider.dart';
 
 // IMPORT CORRIGÉ (minuscule 'v') pour correspondre au repository
 
-import 'package:carpooling_app/models/vehicule.dart'; 
+import 'package:carpooling_app/models/vehicule.dart';
 
 class DashboardPage extends StatefulWidget {
   const DashboardPage({super.key});
@@ -27,6 +27,9 @@ class _DashboardPageState extends State<DashboardPage> {
 
   @override
   Widget build(BuildContext context) {
+    final authProvider = Provider.of<AuthProvider>(context);
+    final bool isDriver = authProvider.isDriver;
+
     return Scaffold(
       backgroundColor: Colors.grey[50],
       body: Column(
@@ -34,7 +37,12 @@ class _DashboardPageState extends State<DashboardPage> {
           // --- EN-TÊTE (Header) ---
           Container(
             width: double.infinity,
-            padding: const EdgeInsets.only(top: 60, bottom: 30, left: 20, right: 20),
+            padding: const EdgeInsets.only(
+              top: 60,
+              bottom: 30,
+              left: 20,
+              right: 20,
+            ),
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: [Colors.blue[900]!, Colors.blue[600]!],
@@ -45,7 +53,13 @@ class _DashboardPageState extends State<DashboardPage> {
                 bottomLeft: Radius.circular(30),
                 bottomRight: Radius.circular(30),
               ),
-              boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 10, offset: Offset(0, 5))],
+              boxShadow: const [
+                BoxShadow(
+                  color: Colors.black26,
+                  blurRadius: 10,
+                  offset: Offset(0, 5),
+                ),
+              ],
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -59,10 +73,15 @@ class _DashboardPageState extends State<DashboardPage> {
                         IconButton(
                           icon: const Icon(Icons.logout, color: Colors.white),
                           onPressed: () {
-                            Provider.of<AuthProvider>(context, listen: false).logout();
+                            Provider.of<AuthProvider>(
+                              context,
+                              listen: false,
+                            ).logout();
                             Navigator.pushAndRemoveUntil(
                               context,
-                              MaterialPageRoute(builder: (_) => const LoginScreen()),
+                              MaterialPageRoute(
+                                builder: (_) => const LoginScreen(),
+                              ),
                               (route) => false,
                             );
                           },
@@ -72,26 +91,39 @@ class _DashboardPageState extends State<DashboardPage> {
                           child: Icon(Icons.person, color: Colors.white),
                         ),
                       ],
-                    )
+                    ),
                   ],
                 ),
                 const SizedBox(height: 20),
-                const Text(
+
+                Text(
                   "Tableau de bord",
-                  style: TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.bold),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 28,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
-                const Text(
-                  "Bienvenue dans votre gestionnaire",
-                  style: TextStyle(color: Colors.white70, fontSize: 16),
+
+                Text(
+                  isDriver ? "Bienvenue conducteur" : "Bienvenue passager",
+                  style: const TextStyle(color: Colors.white70, fontSize: 16),
                 ),
+
                 const SizedBox(height: 20),
-                
+
                 // Petite stat rapide : Nombre de véhicules
                 FutureBuilder<List<Vehicule>>(
-                  future: repo.getAll(), // Plus besoin de 'as ...' car les imports sont les mêmes
+                  future: repo
+                      .getAll(), // Plus besoin de 'as ...' car les imports sont les mêmes
                   builder: (context, snapshot) {
                     if (snapshot.connectionState == ConnectionState.waiting) {
-                       return const SizedBox(height: 50, child: Center(child: CircularProgressIndicator(color: Colors.white)));
+                      return const SizedBox(
+                        height: 50,
+                        child: Center(
+                          child: CircularProgressIndicator(color: Colors.white),
+                        ),
+                      );
                     }
                     final count = snapshot.data?.length ?? 0;
                     return Container(
@@ -106,8 +138,11 @@ class _DashboardPageState extends State<DashboardPage> {
                           const SizedBox(width: 10),
                           Text(
                             "$count Véhicules enregistrés",
-                            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                          )
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
                         ],
                       ),
                     );
@@ -133,7 +168,9 @@ class _DashboardPageState extends State<DashboardPage> {
                   onTap: () async {
                     await Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (_) => const HomeVehiculeScreen()),
+                      MaterialPageRoute(
+                        builder: (_) => const HomeVehiculeScreen(),
+                      ),
                     );
                     _refresh(); // Rafraîchir le compteur au retour
                   },
@@ -141,30 +178,42 @@ class _DashboardPageState extends State<DashboardPage> {
 
                 // Carte 2 : Accueil (anciennement Réservations)
                 _buildMenuCard(
-                  title: "Accueil",
-                  icon: Icons.home,
+                  title: isDriver ? "Gestion du conducteur" : "Réservations",
+                  icon: isDriver ? Icons.manage_accounts : Icons.event_seat,
                   color: Colors.purple,
                   onTap: () async {
-                    await Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const HomeScreen()),
-                    );
-                    _refresh(); // Rafraîchir le compteur au retour
-                  },                
-                  ),
+                    if (isDriver) {
+                      // 👉 Écran conducteur (profil / gestion trajets / réservations reçues)
+                      await Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const HomeScreen()),
+                        // remplace plus tard par DriverDashboardScreen si tu veux
+                      );
+                    } else {
+                      // 👉 Écran passager (réservations)
+                      await Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const HomeScreen()),
+                        // idéalement ReservationScreen()
+                      );
+                    }
+                    _refresh();
+                  },
+                ),
 
-                     // Carte 3 : Chauffeurs
+                // Carte 3 : Chauffeurs
                 _buildMenuCard(
                   title: "Chauffeurs",
                   icon: Icons.person_pin_circle,
                   color: Colors.orange,
                   onTap: () {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text("Module Chauffeurs bientôt disponible !")),
+                      const SnackBar(
+                        content: Text("Module Chauffeurs bientôt disponible !"),
+                      ),
                     );
                   },
                 ),
-
 
                 // Carte 4 : Statistiques
                 _buildMenuCard(
@@ -173,8 +222,8 @@ class _DashboardPageState extends State<DashboardPage> {
                   color: Colors.green,
                   onTap: () {},
                 ),
-                 // Carte 5 : Déconnecter (anciennement Paramètres)
-                _buildMenuCard(
+                // Carte 5 : Déconnecter (anciennement Paramètres)
+                /* _buildMenuCard(
                   title: "Déconnecter",
                   icon: Icons.logout,
                   color: Colors.red,
@@ -186,7 +235,7 @@ class _DashboardPageState extends State<DashboardPage> {
                       (route) => false,
                     );
                   },
-                ),
+                ),*/
               ],
             ),
           ),

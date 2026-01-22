@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import '../db/database_helper.dart';
 
-
 class ManageBookingProvider with ChangeNotifier {
   final DatabaseHelper _db = DatabaseHelper();
 
@@ -14,7 +13,7 @@ class ManageBookingProvider with ChangeNotifier {
   }
 
   Future<void> cancelReservation(int reservationId, int driverId) async {
-    await _db.deleteReservationAndIncrementSeats(reservationId);
+    await _db.deleteReservationAndIncrementSeats(reservationId); // ✅ ici
     await loadForDriver(driverId);
   }
 }

@@ -6,6 +6,14 @@ class AuthProvider with ChangeNotifier {
   User? _user;
   final DatabaseHelper _db = DatabaseHelper();
 
+  // ===== ROLE GETTERS =====
+
+  /// 0 = Client / Passenger
+  bool get isPassager => user?.userType == 0;
+
+  /// 1 = Driver
+  bool get isDriver => user?.userType == 1;
+
   User? get user => _user;
 
   // Sign Up
