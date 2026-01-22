@@ -121,8 +121,9 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
     // priorité: Expiré > Mon trajet > pas client > loading > déjà réservé > complet > réserver
     String? disabledReason;
     if (user == null) disabledReason = 'Connectez-vous pour réserver.';
-    if (user != null && !isClient)
+    if (user != null && !isClient) {
       disabledReason = 'Réservation disponible uniquement pour les clients.';
+    }
     if (isDriverOfThisRide) disabledReason = 'C’est votre trajet (conducteur).';
     if (_isExpired) disabledReason = 'Trajet expiré (date passée).';
     if (ride.id == null) disabledReason = 'Trajet invalide (id manquant).';
@@ -248,7 +249,7 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
                               listen: false,
                             ).cancelMyReservation(
                               reservationId: _myReservation!.id!,
-                              passengerId: user!.id!,
+                              passengerId: user.id!,
                             );
                         if (ok) {
                           // refresh UI + rides seats
@@ -282,7 +283,7 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
                         final ok = await Provider.of<ReservationProvider>(
                           context,
                           listen: false,
-                        ).bookRide(passengerId: user!.id!, ride: ride);
+                        ).bookRide(passengerId: user.id!, ride: ride);
 
                         if (ok) {
                           // ✅ refresh seats + état "déjà réservé"

@@ -1,4 +1,5 @@
 import 'package:carpooling_app/providers/auth_provider.dart';
+import 'package:carpooling_app/screens/admin/admin_dashboard_screen.dart';
 import 'package:carpooling_app/screens/home_screen.dart';
 import 'package:carpooling_app/package/my_packages_screen.dart';
 import 'package:flutter/material.dart';
@@ -29,6 +30,7 @@ class _DashboardPageState extends State<DashboardPage> {
   @override
   Widget build(BuildContext context) {
     final authProvider = Provider.of<AuthProvider>(context);
+    final user = authProvider.user;
     final bool isDriver = authProvider.isDriver;
 
     return Scaffold(
@@ -105,9 +107,12 @@ class _DashboardPageState extends State<DashboardPage> {
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-
                 Text(
-                  isDriver ? "Bienvenue conducteur" : "Bienvenue passager",
+                  user != null && user.userType == 2
+                      ? "Bienvenue admin"
+                      : isDriver
+                      ? "Bienvenue conducteur"
+                      : "Bienvenue passager",
                   style: const TextStyle(color: Colors.white70, fontSize: 16),
                 ),
 
@@ -178,43 +183,46 @@ class _DashboardPageState extends State<DashboardPage> {
                 ),
 
                 // Carte 2 : Accueil (anciennement Réservations)
-                _buildMenuCard(
-                  title: isDriver ? "Gestion du conducteur" : "Réservations",
-                  icon: isDriver ? Icons.manage_accounts : Icons.event_seat,
-                  color: Colors.purple,
-                  onTap: () async {
-                    if (isDriver) {
-                      // 👉 Écran conducteur (profil / gestion trajets / réservations reçues)
-                      await Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (_) => const HomeScreen()),
-                        // remplace plus tard par DriverDashboardScreen si tu veux
-                      );
-                    } else {
-                      // 👉 Écran passager (réservations)
-                      await Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (_) => const HomeScreen()),
-                        // idéalement ReservationScreen()
-                      );
-                    }
-                    _refresh();
-                  },
-                ),
+                // ❌ Admin n’a PAS accès à Réservations
+                if (user != null && user.userType != 2)
+                  _buildMenuCard(
+                    title: isDriver ? "Gestion du conducteur" : "Réservations",
+                    icon: isDriver ? Icons.manage_accounts : Icons.event_seat,
+                    color: Colors.purple,
+                    onTap: () async {
+                      if (isDriver) {
+                        // 👉 Écran conducteur
+                        await Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (_) => const HomeScreen()),
+                        );
+                      } else {
+                        // 👉 Écran passager (réservations)
+                        await Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (_) => const HomeScreen()),
+                        );
+                      }
+                      _refresh();
+                    },
+                  ),
 
-                // Carte 3 : Chauffeurs
-                _buildMenuCard(
-                  title: "Gestion utilisateur",
-                  icon: Icons.person_pin_circle,
-                  color: Colors.orange,
-                  onTap: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text("Module Chauffeurs bientôt disponible !"),
-                      ),
-                    );
-                  },
-                ),
+                // ✅ Carte 3 : Gestion utilisateur (ADMIN ONLY)
+                if (user != null && user.userType == 2)
+                  _buildMenuCard(
+                    title: "Gestion utilisateur",
+                    icon: Icons.person_pin_circle,
+                    color: Colors.orange,
+                    onTap: () async {
+                      await Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const AdminDashboardScreen(),
+                        ),
+                      );
+                      _refresh();
+                    },
+                  ),
 
                 if (Provider.of<AuthProvider>(context).user?.userType ==
                     0) // Passager

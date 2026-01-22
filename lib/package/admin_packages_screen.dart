@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package_provider.dart';
-import '../models/package_model.dart';
 import 'package:intl/intl.dart';
 
 class AdminPackagesScreen extends StatefulWidget {
