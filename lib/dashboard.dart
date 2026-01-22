@@ -6,7 +6,6 @@ import 'package:carpooling_app/vehicule/home_vehicule_screen.dart';
 import 'package:carpooling_app/screens/auth/login_screen.dart';
 import 'package:provider/provider.dart';
 
-// IMPORT CORRIGÉ (minuscule 'v') pour correspondre au repository
 
 import 'package:carpooling_app/models/vehicule.dart';
 
@@ -20,7 +19,6 @@ class DashboardPage extends StatefulWidget {
 class _DashboardPageState extends State<DashboardPage> {
   final VehiculeRepository repo = VehiculeRepository();
 
-  // Fonction pour rafraîchir le dashboard quand on revient d'une page
   void _refresh() {
     setState(() {});
   }
@@ -112,10 +110,9 @@ class _DashboardPageState extends State<DashboardPage> {
 
                 const SizedBox(height: 20),
 
-                // Petite stat rapide : Nombre de véhicules
                 FutureBuilder<List<Vehicule>>(
                   future: repo
-                      .getAll(), // Plus besoin de 'as ...' car les imports sont les mêmes
+                      .getAll(), 
                   builder: (context, snapshot) {
                     if (snapshot.connectionState == ConnectionState.waiting) {
                       return const SizedBox(
@@ -216,12 +213,12 @@ class _DashboardPageState extends State<DashboardPage> {
                 ),
 
                 // Carte 4 : Statistiques
-                _buildMenuCard(
+              /*  _buildMenuCard(
                   title: "Statistiques",
                   icon: Icons.bar_chart,
                   color: Colors.green,
                   onTap: () {},
-                ),
+                ),*/
                 // Carte 5 : Déconnecter (anciennement Paramètres)
                 /* _buildMenuCard(
                   title: "Déconnecter",
