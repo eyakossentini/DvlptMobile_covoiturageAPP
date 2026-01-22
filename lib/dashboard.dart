@@ -1,8 +1,10 @@
+import 'package:carpooling_app/providers/auth_provider.dart';
 import 'package:carpooling_app/screens/home_screen.dart';
 import 'package:flutter/material.dart';
-// Vérifiez bien ces chemins selon votre structure de dossiers
 import 'package:carpooling_app/vehicule/vehicule_repository.dart';
 import 'package:carpooling_app/vehicule/home_vehicule_screen.dart';
+import 'package:carpooling_app/screens/auth/login_screen.dart';
+import 'package:provider/provider.dart';
 
 // IMPORT CORRIGÉ (minuscule 'v') pour correspondre au repository
 
@@ -48,13 +50,28 @@ class _DashboardPageState extends State<DashboardPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Row(
+                Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Icon(Icons.dashboard, color: Colors.white, size: 30),
-                    CircleAvatar(
-                      backgroundColor: Colors.white24,
-                      child: Icon(Icons.person, color: Colors.white),
+                    const Icon(Icons.dashboard, color: Colors.white, size: 30),
+                    Row(
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.logout, color: Colors.white),
+                          onPressed: () {
+                            Provider.of<AuthProvider>(context, listen: false).logout();
+                            Navigator.pushAndRemoveUntil(
+                              context,
+                              MaterialPageRoute(builder: (_) => const LoginScreen()),
+                              (route) => false,
+                            );
+                          },
+                        ),
+                        const CircleAvatar(
+                          backgroundColor: Colors.white24,
+                          child: Icon(Icons.person, color: Colors.white),
+                        ),
+                      ],
                     )
                   ],
                 ),
@@ -122,10 +139,10 @@ class _DashboardPageState extends State<DashboardPage> {
                   },
                 ),
 
-                // Carte 2 : Réservations
+                // Carte 2 : Accueil (anciennement Réservations)
                 _buildMenuCard(
-                  title: "Réservations",
-                  icon: Icons.calendar_month,
+                  title: "Accueil",
+                  icon: Icons.home,
                   color: Colors.purple,
                   onTap: () async {
                     await Navigator.push(
@@ -156,12 +173,19 @@ class _DashboardPageState extends State<DashboardPage> {
                   color: Colors.green,
                   onTap: () {},
                 ),
-                 // Carte 5 : Paramètres
+                 // Carte 5 : Déconnecter (anciennement Paramètres)
                 _buildMenuCard(
-                  title: "Paramètres",
-                  icon: Icons.settings,
-                  color: Colors.grey,
-                  onTap: () {},
+                  title: "Déconnecter",
+                  icon: Icons.logout,
+                  color: Colors.red,
+                  onTap: () {
+                    Provider.of<AuthProvider>(context, listen: false).logout();
+                    Navigator.pushAndRemoveUntil(
+                      context,
+                      MaterialPageRoute(builder: (_) => const LoginScreen()),
+                      (route) => false,
+                    );
+                  },
                 ),
               ],
             ),

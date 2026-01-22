@@ -1,4 +1,7 @@
 import 'dart:io';
+import 'package:carpooling_app/providers/auth_provider.dart';
+import 'package:carpooling_app/screens/auth/login_screen.dart';
+import 'package:provider/provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:carpooling_app/vehicule/vehicule_repository.dart';
@@ -104,6 +107,17 @@ class _VehiculeListPageState extends State<VehiculeListPage> {
                 onChanged: (v) => setState(() => filterType = v!),
               ),
             ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.logout),
+            onPressed: () {
+              Provider.of<AuthProvider>(context, listen: false).logout();
+              Navigator.pushAndRemoveUntil(
+                context,
+                MaterialPageRoute(builder: (_) => const LoginScreen()),
+                (route) => false,
+              );
+            },
           ),
         ],
       ),

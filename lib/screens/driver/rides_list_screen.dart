@@ -1,3 +1,5 @@
+import 'package:carpooling_app/providers/auth_provider.dart';
+import 'package:carpooling_app/screens/auth/login_screen.dart';
 import 'package:carpooling_app/screens/passenger/trip_details_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -23,7 +25,22 @@ class _RidesListScreenState extends State<RidesListScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Trajets disponibles')),
+      appBar: AppBar(
+        title: const Text('Trajets disponibles'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.logout),
+            onPressed: () {
+              Provider.of<AuthProvider>(context, listen: false).logout();
+              Navigator.pushAndRemoveUntil(
+                context,
+                MaterialPageRoute(builder: (_) => const LoginScreen()),
+                (route) => false,
+              );
+            },
+          ),
+        ],
+      ),
       body: Consumer<RideProvider>(
         builder: (context, rideProvider, _) {
           final rides = rideProvider.rides;

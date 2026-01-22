@@ -215,6 +215,39 @@ class DatabaseHelper {
     return maps.map((m) => User.fromMap(m)).toList();
   }
 
+  // Update User
+  Future<int> updateUser(User user) async {
+    if (kIsWeb) {
+      final index = _webMockUsers.indexWhere((u) => u['id'] == user.id);
+      if (index != -1) {
+        _webMockUsers[index] = user.toMap();
+        return 1;
+      }
+      return 0;
+    }
+    final db = await database;
+    return await db.update(
+      'users',
+      user.toMap(),
+      where: 'id = ?',
+      whereArgs: [user.id],
+    );
+  }
+
+  // Delete User
+  Future<int> deleteUser(int id) async {
+    if (kIsWeb) {
+      final index = _webMockUsers.indexWhere((u) => u['id'] == id);
+      if (index != -1) {
+        _webMockUsers.removeAt(index);
+        return 1;
+      }
+      return 0;
+    }
+    final db = await database;
+    return await db.delete('users', where: 'id = ?', whereArgs: [id]);
+  }
+
   // Insert Reservation
   Future<int> insertReservation(Reservation reservation) async {
     if (kIsWeb) {
