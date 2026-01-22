@@ -3,7 +3,7 @@ import 'package:carpooling_app/screens/auth/login_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../../providers/ride_provider.dart';
+import '../../reservation/ride_provider.dart';
 import '../../models/ride_model.dart';
 import 'trip_details_screen.dart';
 

@@ -1,6 +1,6 @@
 import 'package:carpooling_app/providers/auth_provider.dart';
-import 'package:carpooling_app/providers/ride_provider.dart';
-import 'package:carpooling_app/providers/reservation_provider.dart';
+import 'package:carpooling_app/reservation/ride_provider.dart';
+import 'package:carpooling_app/reservation/reservation_provider.dart';
 import 'package:carpooling_app/screens/auth/login_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';

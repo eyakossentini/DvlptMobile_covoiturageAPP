@@ -3,8 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../providers/auth_provider.dart';
-import '../../providers/reservation_provider.dart';
-import '../../providers/ride_provider.dart';
+import '../../reservation/reservation_provider.dart';
+import '../../reservation/ride_provider.dart';
 
 class MyBookingScreen extends StatefulWidget {
   const MyBookingScreen({super.key});

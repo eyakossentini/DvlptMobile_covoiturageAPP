@@ -1,11 +1,13 @@
 import 'package:carpooling_app/providers/auth_provider.dart';
 import 'package:carpooling_app/screens/home_screen.dart';
+import 'package:carpooling_app/package/my_packages_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:carpooling_app/vehicule/vehicule_repository.dart';
 import 'package:carpooling_app/vehicule/home_vehicule_screen.dart';
 import 'package:carpooling_app/screens/auth/login_screen.dart';
+import 'package:carpooling_app/package/available_packages_screen.dart';
+import 'package:carpooling_app/package/admin_packages_screen.dart';
 import 'package:provider/provider.dart';
-
 
 import 'package:carpooling_app/models/vehicule.dart';
 
@@ -19,6 +21,7 @@ class DashboardPage extends StatefulWidget {
 class _DashboardPageState extends State<DashboardPage> {
   final VehiculeRepository repo = VehiculeRepository();
 
+  // Fonction pour rafraîchir le dashboard quand on revient d'une page
   void _refresh() {
     setState(() {});
   }
@@ -110,9 +113,10 @@ class _DashboardPageState extends State<DashboardPage> {
 
                 const SizedBox(height: 20),
 
+                // Petite stat rapide : Nombre de véhicules
                 FutureBuilder<List<Vehicule>>(
                   future: repo
-                      .getAll(), 
+                      .getAll(), // Plus besoin de 'as ...' car les imports sont les mêmes
                   builder: (context, snapshot) {
                     if (snapshot.connectionState == ConnectionState.waiting) {
                       return const SizedBox(
@@ -200,7 +204,7 @@ class _DashboardPageState extends State<DashboardPage> {
 
                 // Carte 3 : Chauffeurs
                 _buildMenuCard(
-                  title: "Chauffeurs",
+                  title: "Gestion utilisateur",
                   icon: Icons.person_pin_circle,
                   color: Colors.orange,
                   onTap: () {
@@ -212,27 +216,53 @@ class _DashboardPageState extends State<DashboardPage> {
                   },
                 ),
 
-                // Carte 4 : Statistiques
-              /*  _buildMenuCard(
-                  title: "Statistiques",
-                  icon: Icons.bar_chart,
-                  color: Colors.green,
-                  onTap: () {},
-                ),*/
-                // Carte 5 : Déconnecter (anciennement Paramètres)
-                /* _buildMenuCard(
-                  title: "Déconnecter",
-                  icon: Icons.logout,
-                  color: Colors.red,
-                  onTap: () {
-                    Provider.of<AuthProvider>(context, listen: false).logout();
-                    Navigator.pushAndRemoveUntil(
-                      context,
-                      MaterialPageRoute(builder: (_) => const LoginScreen()),
-                      (route) => false,
-                    );
-                  },
-                ),*/
+                if (Provider.of<AuthProvider>(context).user?.userType ==
+                    0) // Passager
+                  _buildMenuCard(
+                    title: "Mes Colis",
+                    icon: Icons.local_shipping,
+                    color: Colors.orange,
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const MyPackagesScreen(),
+                        ),
+                      );
+                    },
+                  ),
+
+                if (Provider.of<AuthProvider>(context).user?.userType ==
+                    1) // Chauffeur
+                  _buildMenuCard(
+                    title: "Livrer Colis",
+                    icon: Icons.local_shipping,
+                    color: Colors.orange,
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const AvailablePackagesScreen(),
+                        ),
+                      );
+                    },
+                  ),
+
+                if (Provider.of<AuthProvider>(context).user?.userType ==
+                    2) // Admin
+                  _buildMenuCard(
+                    title: "Gestion Colis",
+                    icon: Icons.inventory,
+                    color: Colors.teal,
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const AdminPackagesScreen(),
+                        ),
+                      );
+                    },
+                  ),
               ],
             ),
           ),

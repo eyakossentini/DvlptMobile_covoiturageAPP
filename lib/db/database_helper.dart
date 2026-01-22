@@ -2,6 +2,7 @@ import 'package:carpooling_app/models/reservation_model.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 import 'package:carpooling_app/models/user_model.dart';
+import 'package:carpooling_app/models/package_model.dart';
 import 'package:carpooling_app/models/ride_model.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 
@@ -13,6 +14,7 @@ class DatabaseHelper {
   static final List<Map<String, dynamic>> _webMockUsers = [];
   static final List<Map<String, dynamic>> _webMockRides = [];
   static final List<Map<String, dynamic>> _webMockReservations = [];
+  static final List<Map<String, dynamic>> _webMockPackages = [];
 
   factory DatabaseHelper() => _instance;
   DatabaseHelper._internal();
@@ -31,7 +33,7 @@ class DatabaseHelper {
     final path = join(await getDatabasesPath(), 'carpooling.db');
     return openDatabase(
       path,
-      version: 4, // ✅ IMPORTANT: bump version
+      version: 4,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -68,7 +70,6 @@ class DatabaseHelper {
       )
     ''');
 
-    // ✅ UNIQUE(rideId, passengerId) empêche doublon
     await db.execute('''
       CREATE TABLE reservations(
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -76,6 +77,27 @@ class DatabaseHelper {
         passengerId INTEGER,
         date TEXT,
         UNIQUE(rideId, passengerId)
+      )
+    ''');
+    await db.execute('''
+  CREATE TABLE packages(
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        rideId INTEGER,
+        passengerId INTEGER,
+        date TEXT
+        senderId INTEGER,
+        driverId INTEGER,
+        description TEXT,
+        weight TEXT,
+        dimensions TEXT,
+        pickupLabel TEXT,
+        pickupLat REAL,
+        pickupLng REAL,
+        deliveryLabel TEXT,
+        deliveryLat REAL,
+        deliveryLng REAL,
+        status TEXT,
+        createdAt TEXT
       )
     ''');
   }
@@ -114,6 +136,28 @@ class DatabaseHelper {
           passengerId INTEGER,
           date TEXT,
           UNIQUE(rideId, passengerId)
+        )
+      ''');
+    }
+
+    // Migration packages
+    if (oldVersion < 4) {
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS packages(
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          senderId INTEGER,
+          driverId INTEGER,
+          description TEXT,
+          weight TEXT,
+          dimensions TEXT,
+          pickupLabel TEXT,
+          pickupLat REAL,
+          pickupLng REAL,
+          deliveryLabel TEXT,
+          deliveryLat REAL,
+          deliveryLng REAL,
+          status TEXT,
+          createdAt TEXT
         )
       ''');
     }
@@ -195,7 +239,12 @@ class DatabaseHelper {
       return 0;
     }
     final db = await database;
-    return db.update('users', user.toMap(), where: 'id = ?', whereArgs: [user.id]);
+    return db.update(
+      'users',
+      user.toMap(),
+      where: 'id = ?',
+      whereArgs: [user.id],
+    );
   }
 
   Future<int> deleteUser(int id) async {
@@ -232,7 +281,12 @@ class DatabaseHelper {
     }
 
     final db = await database;
-    final maps = await db.query('rides', where: 'id = ?', whereArgs: [id], limit: 1);
+    final maps = await db.query(
+      'rides',
+      where: 'id = ?',
+      whereArgs: [id],
+      limit: 1,
+    );
     if (maps.isNotEmpty) return Ride.fromMap(maps.first);
     return null;
   }
@@ -251,7 +305,10 @@ class DatabaseHelper {
   // --------------------------
 
   /// check si déjà réservé
-  Future<Reservation?> getReservationForPassengerOnRide(int passengerId, int rideId) async {
+  Future<Reservation?> getReservationForPassengerOnRide(
+    int passengerId,
+    int rideId,
+  ) async {
     if (kIsWeb) {
       try {
         final m = _webMockReservations.firstWhere(
@@ -359,7 +416,9 @@ class DatabaseHelper {
 
   Future<List<Reservation>> getReservationsByPassenger(int passengerId) async {
     if (kIsWeb) {
-      final list = _webMockReservations.where((r) => r['passengerId'] == passengerId).toList();
+      final list = _webMockReservations
+          .where((r) => r['passengerId'] == passengerId)
+          .toList();
       return list.map((e) => Reservation.fromMap(e)).toList();
     }
 
@@ -375,7 +434,9 @@ class DatabaseHelper {
 
   Future<void> deleteReservationAndIncrementSeats(int reservationId) async {
     if (kIsWeb) {
-      final idx = _webMockReservations.indexWhere((r) => r['id'] == reservationId);
+      final idx = _webMockReservations.indexWhere(
+        (r) => r['id'] == reservationId,
+      );
       if (idx == -1) return;
 
       final rideId = _webMockReservations[idx]['rideId'] as int?;
@@ -410,12 +471,16 @@ class DatabaseHelper {
         whereArgs: [reservationId],
       );
 
-      await txn.rawUpdate('UPDATE rides SET seats = seats + 1 WHERE id = ?', [rideId]);
+      await txn.rawUpdate('UPDATE rides SET seats = seats + 1 WHERE id = ?', [
+        rideId,
+      ]);
     });
   }
 
   // Gérer les réservations conducteur (tu peux garder ton code rawQuery actuel si tu veux)
-  Future<List<Map<String, dynamic>>> getReservationsForDriver(int driverId) async {
+  Future<List<Map<String, dynamic>>> getReservationsForDriver(
+    int driverId,
+  ) async {
     if (kIsWeb) {
       final result = <Map<String, dynamic>>[];
 
@@ -509,5 +574,135 @@ class DatabaseHelper {
         'fromLabel': row['fromLabel'] ?? ride.from.label,
       };
     }).toList();
+  }
+
+  // --- PACKAGE OPERATIONS ---
+
+  Future<int> insertPackage(Package package) async {
+    if (kIsWeb) {
+      final map = package.toMap();
+      map['id'] = _webMockPackages.length + 1;
+      _webMockPackages.add(map);
+      return map['id'] as int;
+    }
+    final db = await database;
+    return db.insert('packages', package.toMap());
+  }
+
+  Future<List<Package>> getAllPackages() async {
+    if (kIsWeb) {
+      return _webMockPackages.map((e) => Package.fromMap(e)).toList();
+    }
+    final db = await database;
+    final maps = await db.query('packages');
+    return maps.map((e) => Package.fromMap(e)).toList();
+  }
+
+  Future<List<Package>> getAvailablePackages() async {
+    if (kIsWeb) {
+      return _webMockPackages
+          .where((p) => p['status'] == 'Pending')
+          .map((e) => Package.fromMap(e))
+          .toList();
+    }
+    final db = await database;
+    final maps = await db.query(
+      'packages',
+      where: 'status = ?',
+      whereArgs: ['Pending'],
+    );
+    return maps.map((e) => Package.fromMap(e)).toList();
+  }
+
+  Future<List<Package>> getPackagesBySender(int senderId) async {
+    if (kIsWeb) {
+      return _webMockPackages
+          .where((p) => p['senderId'] == senderId)
+          .map((e) => Package.fromMap(e))
+          .toList();
+    }
+    final db = await database;
+    final maps = await db.query(
+      'packages',
+      where: 'senderId = ?',
+      whereArgs: [senderId],
+    );
+    return maps.map((e) => Package.fromMap(e)).toList();
+  }
+
+  Future<List<Package>> getPackagesByDriver(int driverId) async {
+    if (kIsWeb) {
+      return _webMockPackages
+          .where((p) => p['driverId'] == driverId)
+          .map((e) => Package.fromMap(e))
+          .toList();
+    }
+    final db = await database;
+    final maps = await db.query(
+      'packages',
+      where: 'driverId = ?',
+      whereArgs: [driverId],
+    );
+    return maps.map((e) => Package.fromMap(e)).toList();
+  }
+
+  Future<int> updatePackageStatus(
+    int packageId,
+    String newStatus, {
+    int? driverId,
+  }) async {
+    if (kIsWeb) {
+      final idx = _webMockPackages.indexWhere((p) => p['id'] == packageId);
+      if (idx != -1) {
+        _webMockPackages[idx]['status'] = newStatus;
+        if (driverId != null) {
+          _webMockPackages[idx]['driverId'] = driverId;
+        }
+        return 1;
+      }
+      return 0;
+    }
+    final db = await database;
+    final Map<String, dynamic> updates = {'status': newStatus};
+    if (driverId != null) {
+      updates['driverId'] = driverId;
+    }
+    return db.update(
+      'packages',
+      updates,
+      where: 'id = ?',
+      whereArgs: [packageId],
+    );
+  }
+
+  Future<int> updatePackage(Package package) async {
+    if (kIsWeb) {
+      final idx = _webMockPackages.indexWhere((p) => p['id'] == package.id);
+      if (idx != -1) {
+        _webMockPackages[idx] = package.toMap();
+        return 1;
+      }
+      return 0;
+    }
+    final db = await database;
+    return await db.update(
+      'packages',
+      package.toMap(),
+      where: 'id = ?',
+      whereArgs: [package.id],
+    );
+  }
+
+  Future<int> deletePackage(int id) async {
+    if (kIsWeb) {
+      final index = _webMockPackages.indexWhere((p) => p['id'] == id);
+      if (index != -1) {
+        _webMockPackages.removeAt(index);
+        return 1;
+      }
+      return 0;
+    }
+    final db = await database;
+    return await db.delete('packages', where: 'id = ?', whereArgs: [id]);
   }
 }

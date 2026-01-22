@@ -2,12 +2,12 @@ import 'package:carpooling_app/screens/auth/login_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import 'package:carpooling_app/providers/ride_provider.dart';
+import 'package:carpooling_app/reservation/ride_provider.dart';
 import 'package:carpooling_app/providers/auth_provider.dart';
 
 import '../../models/address.dart';
 import '../../models/ride_model.dart';
-import '../maps/route_map_screen.dart';
+import '../reservation/route_map_screen.dart';
 
 class AddRideScreen extends StatefulWidget {
   const AddRideScreen({super.key});

@@ -1,12 +1,12 @@
-import 'package:carpooling_app/screens/passenger/my_bookings_screen.dart';
+import 'package:carpooling_app/reservation/my_bookings_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:carpooling_app/providers/auth_provider.dart';
 import 'package:carpooling_app/screens/auth/login_screen.dart';
-import 'package:carpooling_app/screens/driver/add_ride_screen.dart';
-import 'package:carpooling_app/screens/driver/rides_list_screen.dart';
+import 'package:carpooling_app/reservation/add_ride_screen.dart';
+import 'package:carpooling_app/reservation/rides_list_screen.dart';
 import 'package:carpooling_app/screens/admin/admin_dashboard_screen.dart';
-import 'package:carpooling_app/screens/driver/manage_bookings_screen.dart';
+import 'package:carpooling_app/reservation/manage_bookings_screen.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
