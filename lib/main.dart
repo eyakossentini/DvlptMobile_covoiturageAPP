@@ -5,6 +5,7 @@ import 'package:carpooling_app/providers/ride_provider.dart';
 import 'package:carpooling_app/screens/auth/login_screen.dart';
 import 'package:carpooling_app/providers/manage_booking_provider.dart';
 import 'package:carpooling_app/providers/reservation_provider.dart';
+import 'package:carpooling_app/providers/package_provider.dart';
 
 
 void main() {
@@ -15,6 +16,7 @@ void main() {
         ChangeNotifierProvider(create: (_) => RideProvider()),
         ChangeNotifierProvider(create: (_) => ReservationProvider()),
         ChangeNotifierProvider(create: (_) => ManageBookingProvider()), // 👈 AJOUT ICI
+        ChangeNotifierProvider(create: (_) => PackageProvider()),
       ],
       child: const MyApp(),
     ),
