@@ -1,3 +1,4 @@
+import 'package:carpooling_app/screens/auth/login_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -146,7 +147,22 @@ class _AddRideScreenState extends State<AddRideScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Proposer un trajet')),
+      appBar: AppBar(
+        title: const Text('Proposer un trajet'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.logout),
+            onPressed: () {
+              Provider.of<AuthProvider>(context, listen: false).logout();
+              Navigator.pushAndRemoveUntil(
+                context,
+                MaterialPageRoute(builder: (_) => const LoginScreen()),
+                (route) => false,
+              );
+            },
+          ),
+        ],
+      ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Form(

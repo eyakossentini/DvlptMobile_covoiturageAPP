@@ -2,6 +2,9 @@ import 'package:carpooling_app/vehicule/vehicule_list_page.dart';
 import 'package:flutter/material.dart';
 import 'package:carpooling_app/db/database_helper.dart';
 import 'package:carpooling_app/models/user_model.dart';
+import 'package:carpooling_app/providers/auth_provider.dart';
+import 'package:carpooling_app/screens/auth/login_screen.dart';
+import 'package:provider/provider.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
   const AdminDashboardScreen({super.key});
@@ -29,6 +32,103 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     });
   }
 
+  void _deleteUser(int id) async {
+    bool? confirm = await showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Confirmer la suppression'),
+        content: const Text('Voulez-vous vraiment supprimer cet utilisateur ?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Annuler'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Supprimer'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      await _db.deleteUser(id);
+      _fetchUsers();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Utilisateur supprimé')),
+      );
+    }
+  }
+
+  void _editUser(User user) async {
+    final nameController = TextEditingController(text: user.name);
+    final emailController = TextEditingController(text: user.email);
+    final phoneController = TextEditingController(text: user.phone);
+    int selectedRole = user.userType;
+
+    bool? saved = await showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Modifier l\'utilisateur'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: nameController,
+                  decoration: const InputDecoration(labelText: 'Nom'),
+                ),
+                TextField(
+                  controller: emailController,
+                  decoration: const InputDecoration(labelText: 'Email'),
+                ),
+                TextField(
+                  controller: phoneController,
+                  decoration: const InputDecoration(labelText: 'Téléphone'),
+                ),
+                const SizedBox(height: 10),
+                const Text('Rôle :'),
+                DropdownButton<int>(
+                  value: selectedRole,
+                  items: const [
+                    DropdownMenuItem(value: 0, child: Text('Client')),
+                    DropdownMenuItem(value: 1, child: Text('Conducteur')),
+                    DropdownMenuItem(value: 2, child: Text('Administrateur')),
+                  ],
+                  onChanged: (v) => setDialogState(() => selectedRole = v!),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Annuler'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Enregistrer'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (saved == true) {
+      user.name = nameController.text.trim();
+      user.email = emailController.text.trim();
+      user.phone = phoneController.text.trim();
+      user.userType = selectedRole;
+      await _db.updateUser(user);
+      _fetchUsers();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Utilisateur mis à jour')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     int clientCount = _users.where((u) => u.userType == 0).length;
@@ -39,6 +139,19 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         title: const Text('Tableau de Bord Admin'),
         backgroundColor: Colors.red.shade700,
         foregroundColor: Colors.white,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.logout),
+            onPressed: () {
+              Provider.of<AuthProvider>(context, listen: false).logout();
+              Navigator.pushAndRemoveUntil(
+                context,
+                MaterialPageRoute(builder: (_) => const LoginScreen()),
+                (route) => false,
+              );
+            },
+          ),
+        ],
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
@@ -105,6 +218,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                         DataColumn(label: Text('Nom')),
                         DataColumn(label: Text('Email')),
                         DataColumn(label: Text('Rôle')),
+                        DataColumn(label: Text('Actions')),
                       ],
                       rows: _users.map((user) {
                         return DataRow(
@@ -114,7 +228,25 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                             DataCell(Text(user.email)),
                             DataCell(
                               Text(
-                                user.userType == 0 ? 'Client' : 'Conducteur',
+                                user.userType == 0
+                                    ? 'Client'
+                                    : user.userType == 1
+                                        ? 'Conducteur'
+                                        : 'Admin',
+                              ),
+                            ),
+                            DataCell(
+                              Row(
+                                children: [
+                                  IconButton(
+                                    icon: const Icon(Icons.edit, color: Colors.blue),
+                                    onPressed: () => _editUser(user),
+                                  ),
+                                  IconButton(
+                                    icon: const Icon(Icons.delete, color: Colors.red),
+                                    onPressed: () => _deleteUser(user.id!),
+                                  ),
+                                ],
                               ),
                             ),
                           ],

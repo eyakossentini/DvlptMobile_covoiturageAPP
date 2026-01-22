@@ -1,3 +1,4 @@
+import 'package:carpooling_app/screens/auth/login_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -38,7 +39,22 @@ class _MyBookingScreenState extends State<MyBookingScreen> {
     }
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Mes réservations')),
+      appBar: AppBar(
+        title: const Text('Mes réservations'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.logout),
+            onPressed: () {
+              Provider.of<AuthProvider>(context, listen: false).logout();
+              Navigator.pushAndRemoveUntil(
+                context,
+                MaterialPageRoute(builder: (_) => const LoginScreen()),
+                (route) => false,
+              );
+            },
+          ),
+        ],
+      ),
       body: Consumer<ReservationProvider>(
         builder: (context, provider, _) {
           if (provider.items.isEmpty) {

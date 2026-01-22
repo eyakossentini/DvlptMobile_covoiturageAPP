@@ -177,7 +177,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               filled: true,
                               fillColor: Colors.grey.shade50,
                             ),
-                            validator: (v) => v!.isEmpty ? 'Requis' : null,
+                            validator: (v) {
+                              if (v == null || v.isEmpty) return 'Requis';
+                              final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
+                              if (!emailRegex.hasMatch(v)) return 'Email invalide';
+                              return null;
+                            },
                           ),
                           const SizedBox(height: 16),
                           TextFormField(
@@ -191,7 +196,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               filled: true,
                               fillColor: Colors.grey.shade50,
                             ),
-                            validator: (v) => v!.isEmpty ? 'Requis' : null,
+                            validator: (v) {
+                              if (v == null || v.isEmpty) return 'Requis';
+                              final phoneRegex = RegExp(r'^\d{8,15}$');
+                              if (!phoneRegex.hasMatch(v)) return '8 à 15 chiffres requis';
+                              return null;
+                            },
                           ),
                           const SizedBox(height: 16),
                           TextFormField(
@@ -206,7 +216,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               fillColor: Colors.grey.shade50,
                             ),
                             obscureText: true,
-                            validator: (v) => v!.isEmpty ? 'Requis' : null,
+                            validator: (v) {
+                              if (v == null || v.isEmpty) return 'Requis';
+                              if (v.length < 6) return 'Mini 6 caractères';
+                              return null;
+                            },
                           ),
                           const SizedBox(height: 24),
                           const Text(
