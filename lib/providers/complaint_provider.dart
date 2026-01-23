@@ -4,20 +4,16 @@ import 'package:flutter/material.dart';
 class ComplaintProvider with ChangeNotifier {
   List<Complaint> _complaints = [];
   bool _isLoading = false;
+  bool _mockDataLoaded = false;
 
   List<Complaint> get complaints => _complaints;
   bool get isLoading => _isLoading;
 
-  Future<void> fetchComplaints({String? userId, bool reset = false}) async {
-    _isLoading = true;
-    notifyListeners();
-
-    await Future.delayed(const Duration(milliseconds: 500));
-    
-    // DONNÉES MOCKÉES
-    final mockComplaints = [
+  // DONNÉES MOCKÉES
+  List<Complaint> get _mockComplaints {
+    return [
       Complaint(
-        id: '1',
+        id: 'mock_1',
         userId: '1',
         userName: 'Jean Dupont',
         rideId: '123',
@@ -28,7 +24,7 @@ class ComplaintProvider with ChangeNotifier {
         createdAt: DateTime.now().subtract(const Duration(days: 2)),
       ),
       Complaint(
-        id: '2',
+        id: 'mock_2',
         userId: '2',
         userName: 'Marie Martin',
         rideId: '456',
@@ -39,7 +35,7 @@ class ComplaintProvider with ChangeNotifier {
         createdAt: DateTime.now().subtract(const Duration(days: 1)),
       ),
       Complaint(
-        id: '3',
+        id: 'mock_3',
         userId: '3',
         userName: 'Paul Dubois',
         rideId: '789',
@@ -50,7 +46,7 @@ class ComplaintProvider with ChangeNotifier {
         createdAt: DateTime.now().subtract(const Duration(days: 3)),
       ),
       Complaint(
-        id: '4',
+        id: 'mock_4',
         userId: '1',
         userName: 'Jean Dupont',
         rideId: '999',
@@ -61,48 +57,59 @@ class ComplaintProvider with ChangeNotifier {
         createdAt: DateTime.now().subtract(const Duration(hours: 5)),
       ),
     ];
+  }
+
+  Future<void> fetchComplaints({String? userId, bool reset = false}) async {
+    _isLoading = true;
+    notifyListeners();
+
+    await Future.delayed(const Duration(milliseconds: 500));
     
-    // LOGIQUE DE CHARGEMENT
-    if (reset || _complaints.isEmpty) {
-      print('🔄 Chargement des données mockées (reset: $reset)');
-      
-      if (reset) {
-        _complaints = mockComplaints;
-      } else {
-        for (var mock in mockComplaints) {
-          if (!_complaints.any((c) => c.id == mock.id)) {
-            _complaints.add(mock);
-          }
-        }
-      }
-    } else {
-      print('📊 Utilisation des données existantes (${_complaints.length} réclamations)');
+    print('🔄 fetchComplaints appelé (reset: $reset, mockLoaded: $_mockDataLoaded)');
+    
+    if (reset) {
+      print('🔄 Réinitialisation complète demandée');
+      _complaints.clear();
+      _mockDataLoaded = false;
     }
     
-    // FILTRAGE POUR L'AFFICHAGE (NE PAS MODIFIER _complaints)
-    if (userId != null) {
-      final userIdStr = userId.toString();
-      final filtered = _complaints.where((c) => c.userId == userIdStr).toList();
-      print('🔍 Filtrage pour userId "$userIdStr": ${filtered.length} résultats');
-      
-      // Debug
-      print('📋 Liste complète (${_complaints.length}):');
-      for (var c in _complaints) {
-        print('   - ${c.title} (user: ${c.userId}, id: ${c.id})');
+    // Charger les données mockées SEULEMENT si elles ne sont pas déjà chargées
+    if (!_mockDataLoaded) {
+      print('📥 Chargement des données mockées');
+      for (var mock in _mockComplaints) {
+        if (!_complaints.any((c) => c.id == mock.id)) {
+          _complaints.add(mock);
+        }
       }
+      _mockDataLoaded = true;
+    } else {
+      print('📊 Utilisation des données existantes (${_complaints.length} réclamations)');
     }
 
     _isLoading = false;
     notifyListeners();
   }
 
+  // NOUVELLE MÉTHODE POUR ACTUALISER SANS RÉINITIALISER
+  Future<void> refreshComplaints({String? userId}) async {
+    _isLoading = true;
+    notifyListeners();
+
+    await Future.delayed(const Duration(milliseconds: 300));
+    
+    print('🔄 refreshComplaints appelé (simulation de rafraîchissement)');
+    print('   Liste actuelle: ${_complaints.length} réclamations');
+    
+    // Ne fait rien d'autre que notifier - garde toutes les données existantes
+    _isLoading = false;
+    notifyListeners();
+  }
+
   Future<void> addComplaint(Complaint complaint) async {
     try {
-      print('➕ AJOUT Réclamation pour ${complaint.userName} (${complaint.userId})');
-      print('   Titre: ${complaint.title}');
-      print('   Avant ajout: ${_complaints.length} réclamations');
+      print('➕ AJOUT Réclamation pour ${complaint.userName}');
       
-      // CRÉER UN ID UNIQUE
+      // CRÉER UN ID UNIQUE avec préfixe "user_"
       final newComplaint = complaint.copyWith(
         id: 'user_${complaint.userId}_${DateTime.now().millisecondsSinceEpoch}',
         userId: complaint.userId.toString(),
@@ -112,22 +119,19 @@ class ComplaintProvider with ChangeNotifier {
       final similarExists = _complaints.any((c) => 
         c.userId == newComplaint.userId && 
         c.title.toLowerCase() == newComplaint.title.toLowerCase() &&
-        DateTime.now().difference(c.createdAt).inMinutes < 2
+        c.id.startsWith('user_') &&
+        DateTime.now().difference(c.createdAt).inMinutes < 5
       );
       
       if (similarExists) {
-        print('⚠️ Réclamation similaire existe déjà, ignorée');
+        print('⚠️ Réclamation similaire existe déjà (moins de 5 minutes), ignorée');
         return;
       }
       
-      // AJOUTER
+      // AJOUTER AU DÉBUT DE LA LISTE
       _complaints.insert(0, newComplaint);
       
-      print('✅ Après ajout: ${_complaints.length} réclamations');
-      print('📋 Liste complète:');
-      for (var c in _complaints) {
-        print('   - ${c.title} (user: ${c.userId}, id: ${c.id})');
-      }
+      print('✅ Réclamation ajoutée: ${_complaints.length} total');
       
       notifyListeners();
       
@@ -156,11 +160,118 @@ class ComplaintProvider with ChangeNotifier {
     }
   }
 
-  // ... autres méthodes inchangées ...
+  Future<void> updateComplaint(Complaint updatedComplaint) async {
+    try {
+      print('✏️ MODIFICATION Réclamation ${updatedComplaint.id}');
+      
+      final index = _complaints.indexWhere((c) => c.id == updatedComplaint.id);
+      
+      if (index != -1) {
+        final oldComplaint = _complaints[index];
+        
+        if (oldComplaint.status != ComplaintStatus.pending) {
+          print('⚠️ Impossible de modifier une réclamation non en attente');
+          throw Exception('Seules les réclamations en attente peuvent être modifiées');
+        }
+        
+        _complaints[index] = updatedComplaint.copyWith(
+          createdAt: oldComplaint.createdAt,
+        );
+        
+        print('✅ Réclamation modifiée: ${oldComplaint.title} -> ${updatedComplaint.title}');
+        
+        notifyListeners();
+      } else {
+        print('❌ Réclamation non trouvée: ${updatedComplaint.id}');
+        throw Exception('Réclamation non trouvée');
+      }
+    } catch (e) {
+      print('❌ Erreur dans updateComplaint: $e');
+      rethrow;
+    }
+  }
 
+  Future<void> deleteComplaint(String complaintId) async {
+    try {
+      print('🗑️ SUPPRESSION Réclamation $complaintId');
+      
+      final index = _complaints.indexWhere((c) => c.id == complaintId);
+      
+      if (index != -1) {
+        final complaintToDelete = _complaints[index];
+        
+        _complaints.removeAt(index);
+        
+        print('✅ Réclamation supprimée: ${complaintToDelete.title}');
+        
+        notifyListeners();
+      } else {
+        print('❌ Réclamation non trouvée: $complaintId');
+        throw Exception('Réclamation non trouvée');
+      }
+    } catch (e) {
+      print('❌ Erreur dans deleteComplaint: $e');
+      rethrow;
+    }
+  }
+
+  Complaint? getComplaintById(String id) {
+    try {
+      return _complaints.firstWhere((c) => c.id == id);
+    } catch (e) {
+      return null;
+    }
+  }
+
+  List<Complaint> getComplaintsByUserId(String userId) {
+    return _complaints.where((c) => c.userId == userId).toList();
+  }
+
+  List<Complaint> getComplaintsByStatus(ComplaintStatus status) {
+    return _complaints.where((c) => c.status == status).toList();
+  }
+
+  Map<ComplaintStatus, int> getComplaintsCountByStatus() {
+    final Map<ComplaintStatus, int> counts = {};
+    
+    for (final status in ComplaintStatus.values) {
+      counts[status] = _complaints.where((c) => c.status == status).length;
+    }
+    
+    return counts;
+  }
+
+  bool canUserModifyComplaint(String complaintId, String userId, {bool isAdmin = false}) {
+    try {
+      final complaint = _complaints.firstWhere((c) => c.id == complaintId);
+      
+      if (isAdmin) {
+        return true;
+      }
+      
+      return complaint.userId == userId && complaint.status == ComplaintStatus.pending;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  bool canUserDeleteComplaint(String complaintId, String userId, {bool isAdmin = false}) {
+    try {
+      final complaint = _complaints.firstWhere((c) => c.id == complaintId);
+      
+      if (isAdmin) {
+        return true;
+      }
+      
+      return complaint.userId == userId && 
+             complaint.status == ComplaintStatus.pending &&
+             complaint.id.startsWith('user_');
+    } catch (e) {
+      return false;
+    }
+  }
 }
 
-// Extension inchangée
 extension ComplaintCopyWith on Complaint {
   Complaint copyWith({
     String? id,

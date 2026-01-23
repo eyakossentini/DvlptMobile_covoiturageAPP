@@ -48,11 +48,15 @@ class _ComplaintsScreenState extends State<ComplaintsScreen> {
     try {
       final provider = Provider.of<ComplaintProvider>(context, listen: false);
 
-      if (refresh || provider.complaints.isEmpty) {
-        provider.fetchComplaints(reset: refresh);
+      if (refresh) {
+        // Utiliser refreshComplaints qui ne réinitialise pas les données
+        provider.refreshComplaints();
+      } else if (provider.complaints.isEmpty) {
+        // Chargement initial seulement
+        provider.fetchComplaints(reset: false);
       }
     } catch (e) {
-      // Gérer l'erreur silencieusement
+      print('Erreur lors du chargement: $e');
     }
   }
 
@@ -188,7 +192,11 @@ class _ComplaintsScreenState extends State<ComplaintsScreen> {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       ElevatedButton(
-                        onPressed: () => _loadComplaints(refresh: true),
+                        onPressed: () {
+                          // Utiliser refreshComplaints
+                          final provider = Provider.of<ComplaintProvider>(context, listen: false);
+                          provider.refreshComplaints();
+                        },
                         child: const Text('Actualiser'),
                       ),
                       const SizedBox(width: 10),
@@ -206,7 +214,13 @@ class _ComplaintsScreenState extends State<ComplaintsScreen> {
 
           return RefreshIndicator(
             onRefresh: () async {
-              _loadComplaints(refresh: true);
+              // Utiliser refreshComplaints au lieu de fetchComplaints
+              try {
+                final provider = Provider.of<ComplaintProvider>(context, listen: false);
+                await provider.refreshComplaints();
+              } catch (e) {
+                print('Erreur lors du rafraîchissement: $e');
+              }
             },
             child: ListView.builder(
               padding: const EdgeInsets.all(10),
@@ -221,7 +235,11 @@ class _ComplaintsScreenState extends State<ComplaintsScreen> {
       ),
       floatingActionButton: widget.isAdmin
           ? FloatingActionButton(
-              onPressed: () => _loadComplaints(refresh: true),
+              onPressed: () {
+                // Pour l'admin, utiliser refreshComplaints
+                final provider = Provider.of<ComplaintProvider>(context, listen: false);
+                provider.refreshComplaints();
+              },
               mini: true,
               child: const Icon(Icons.refresh),
             )
@@ -230,7 +248,11 @@ class _ComplaintsScreenState extends State<ComplaintsScreen> {
               children: [
                 FloatingActionButton(
                   heroTag: "refresh",
-                  onPressed: () => _loadComplaints(refresh: true),
+                  onPressed: () {
+                    // Pour l'utilisateur, utiliser refreshComplaints
+                    final provider = Provider.of<ComplaintProvider>(context, listen: false);
+                    provider.refreshComplaints();
+                  },
                   mini: true,
                   child: const Icon(Icons.refresh),
                 ),
@@ -320,7 +342,7 @@ class _ComplaintsScreenState extends State<ComplaintsScreen> {
         ),
         trailing: widget.isAdmin
             ? _buildAdminQuickActions(complaint, provider)
-            : const Icon(Icons.arrow_forward_ios, size: 16),
+            : _buildUserActions(complaint, provider),
         onTap: () {
           _showComplaintDetail(context, complaint, provider);
         },
@@ -412,6 +434,38 @@ class _ComplaintsScreenState extends State<ComplaintsScreen> {
               });
             },
           ),
+        
+        // Bouton de suppression pour admin
+        IconButton(
+          icon: const Icon(Icons.delete, size: 18, color: Colors.red),
+          tooltip: 'Supprimer',
+          onPressed: () => _showDeleteConfirmationDialog(context, complaint, provider),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildUserActions(Complaint complaint, ComplaintProvider provider) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Bouton de modification seulement si la réclamation est en attente
+        if (complaint.status == ComplaintStatus.pending)
+          IconButton(
+            icon: const Icon(Icons.edit, size: 18, color: Colors.blue),
+            tooltip: 'Modifier',
+            onPressed: () => _showEditComplaintDialog(context, complaint, provider),
+          ),
+        
+        // Bouton de suppression seulement si la réclamation est en attente
+        if (complaint.status == ComplaintStatus.pending)
+          IconButton(
+            icon: const Icon(Icons.delete, size: 18, color: Colors.red),
+            tooltip: 'Supprimer',
+            onPressed: () => _showDeleteConfirmationDialog(context, complaint, provider),
+          ),
+        
+        const Icon(Icons.arrow_forward_ios, size: 16),
       ],
     );
   }
@@ -548,6 +602,166 @@ class _ComplaintsScreenState extends State<ComplaintsScreen> {
                 );
               },
               child: const Text('Envoyer'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _showEditComplaintDialog(BuildContext context, Complaint complaint, ComplaintProvider provider) {
+    final titleController = TextEditingController(text: complaint.title);
+    final descriptionController = TextEditingController(text: complaint.description);
+    final rideIdController = TextEditingController(text: complaint.rideId ?? '');
+    ComplaintType selectedType = complaint.type;
+
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          title: const Text('Modifier la réclamation'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                DropdownButtonFormField<ComplaintType>(
+                  value: selectedType,
+                  decoration: const InputDecoration(
+                    labelText: 'Type de réclamation',
+                    border: OutlineInputBorder(),
+                  ),
+                  items: ComplaintType.values.map((type) {
+                    return DropdownMenuItem(
+                      value: type,
+                      child: Text(type.label),
+                    );
+                  }).toList(),
+                  onChanged: (value) {
+                    if (value != null) selectedType = value;
+                  },
+                ),
+                const SizedBox(height: 10),
+                TextField(
+                  controller: rideIdController,
+                  decoration: const InputDecoration(
+                    labelText: 'ID du trajet (optionnel)',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                TextField(
+                  controller: titleController,
+                  decoration: const InputDecoration(
+                    labelText: 'Titre*',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                TextField(
+                  controller: descriptionController,
+                  decoration: const InputDecoration(
+                    labelText: 'Description*',
+                    border: OutlineInputBorder(),
+                  ),
+                  maxLines: 4,
+                ),
+                const SizedBox(height: 10),
+                const Text(
+                  '* Champs obligatoires',
+                  style: TextStyle(fontSize: 12, color: Colors.grey),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Annuler'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                if (titleController.text.isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Veuillez saisir un titre'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                  return;
+                }
+                if (descriptionController.text.isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Veuillez saisir une description'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                  return;
+                }
+
+                // Créer une copie mise à jour de la réclamation
+                final updatedComplaint = complaint.copyWith(
+                  title: titleController.text,
+                  description: descriptionController.text,
+                  type: selectedType,
+                  rideId: rideIdController.text.isNotEmpty ? rideIdController.text : null,
+                );
+
+                provider.updateComplaint(updatedComplaint);
+
+                Navigator.pop(ctx);
+
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      'Réclamation "${titleController.text}" modifiée',
+                    ),
+                    backgroundColor: Colors.blue,
+                  ),
+                );
+              },
+              child: const Text('Enregistrer'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _showDeleteConfirmationDialog(BuildContext context, Complaint complaint, ComplaintProvider provider) {
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          title: const Text('Confirmer la suppression'),
+          content: Text(
+            widget.isAdmin
+                ? 'Voulez-vous vraiment supprimer la réclamation "${complaint.title}" ?'
+                : 'Voulez-vous vraiment supprimer votre réclamation "${complaint.title}" ?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Annuler'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                provider.deleteComplaint(complaint.id);
+                Navigator.pop(ctx);
+                
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      'Réclamation "${complaint.title}" supprimée',
+                    ),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red,
+              ),
+              child: const Text('Supprimer', style: TextStyle(color: Colors.white)),
             ),
           ],
         );
@@ -708,6 +922,29 @@ class _ComplaintsScreenState extends State<ComplaintsScreen> {
                 ),
               ),
               actions: [
+                if (!widget.isAdmin && complaint.status == ComplaintStatus.pending)
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.start,
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.edit, color: Colors.blue),
+                        tooltip: 'Modifier',
+                        onPressed: () {
+                          Navigator.pop(context);
+                          _showEditComplaintDialog(context, complaint, provider);
+                        },
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.delete, color: Colors.red),
+                        tooltip: 'Supprimer',
+                        onPressed: () {
+                          Navigator.pop(context);
+                          _showDeleteConfirmationDialog(context, complaint, provider);
+                        },
+                      ),
+                    ],
+                  ),
+                
                 TextButton(
                   onPressed: () {
                     _isDialogOpen = false;

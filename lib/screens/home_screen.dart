@@ -112,7 +112,7 @@ class HomeScreen extends StatelessWidget {
                           },
                         ),
                       ]
-                      // ✅ PASSAGER
+                      // ✅ PASSAGER (CLIENT)
                       else if (user.userType == 0) ...[
                         _buildActionCard(
                           context,
@@ -140,6 +140,35 @@ class HomeScreen extends StatelessWidget {
                               context,
                               MaterialPageRoute(
                                 builder: (context) => const MyBookingScreen(),
+                              ),
+                            );
+                          },
+                        ),
+                        
+                        // ✅ NOUVEAU : passager peut créer une réclamation
+                        _buildActionCard(
+                          context,
+                          'Créer une réclamation',
+                          Icons.report_problem,
+                          Colors.amber,
+                          () {
+                            _showAddComplaintDialog(context, user);
+                          },
+                        ),
+                        
+                        // ✅ NOUVEAU : passager peut voir ses réclamations
+                        _buildActionCard(
+                          context,
+                          'Mes réclamations',
+                          Icons.list_alt,
+                          Colors.purple,
+                          () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => ComplaintsScreen(
+                                  userId: _getUserId(user),
+                                ),
                               ),
                             );
                           },
@@ -196,16 +225,6 @@ class HomeScreen extends StatelessWidget {
                     ],
                   ),
           ),
-          // ✅ BOUTON FLOATING POUR NOUVELLE RÉCLAMATION
-          floatingActionButton:
-              user?.userType !=
-                  2 // Pas pour admin
-              ? FloatingActionButton(
-                  onPressed: () => _showAddComplaintDialog(context, user!),
-                  backgroundColor: Colors.amber,
-                  child: const Icon(Icons.add_comment, color: Colors.white),
-                )
-              : null,
         );
       },
     );
@@ -257,12 +276,12 @@ class HomeScreen extends StatelessWidget {
     return 'unknown';
   }
 
-  // ✅ DIALOGUE CORRIGÉ AVEC TYPE DE RÉCLAMATION
+  // ✅ DIALOGUE POUR CRÉER UNE RÉCLAMATION
   void _showAddComplaintDialog(BuildContext context, User user) {
     final titleController = TextEditingController();
     final descriptionController = TextEditingController();
-    final rideIdController = TextEditingController(); // 👈 POUR LE ID DE TRAJET
-    ComplaintType _selectedType = ComplaintType.other; // 👈 TYPE PAR DÉFAUT
+    final rideIdController = TextEditingController();
+    ComplaintType _selectedType = ComplaintType.other;
 
     showDialog(
       context: context,
@@ -273,7 +292,6 @@ class HomeScreen extends StatelessWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // 👇 SÉLECTION DU TYPE
                 DropdownButtonFormField<ComplaintType>(
                   value: _selectedType,
                   decoration: const InputDecoration(
@@ -294,7 +312,6 @@ class HomeScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 10),
 
-                // 👇 ID DU TRAJET (OPTIONNEL)
                 TextField(
                   controller: rideIdController,
                   decoration: const InputDecoration(
@@ -304,7 +321,6 @@ class HomeScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 10),
 
-                // TITRE
                 TextField(
                   controller: titleController,
                   decoration: const InputDecoration(
@@ -314,7 +330,6 @@ class HomeScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 10),
 
-                // DESCRIPTION
                 TextField(
                   controller: descriptionController,
                   decoration: const InputDecoration(
@@ -339,7 +354,6 @@ class HomeScreen extends StatelessWidget {
             ),
             ElevatedButton(
               onPressed: () {
-                // VALIDATION
                 if (titleController.text.isEmpty) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
@@ -366,22 +380,20 @@ class HomeScreen extends StatelessWidget {
                     listen: false,
                   );
 
-                  // 👇 CRÉATION CORRECTE DE LA RÉCLAMATION
                   final newComplaint = Complaint(
                     id: DateTime.now().millisecondsSinceEpoch.toString(),
                     userId: _getUserId(user),
                     userName: user.name,
                     rideId: rideIdController.text.isNotEmpty
                         ? rideIdController.text
-                        : null, // 👈 CORRECTION ICI
+                        : null,
                     title: titleController.text,
                     description: descriptionController.text,
-                    type: _selectedType, // 👈 UTILISER LE TYPE SÉLECTIONNÉ
+                    type: _selectedType,
                     status: ComplaintStatus.pending,
                     createdAt: DateTime.now(),
                   );
 
-                  // 👇 LOGS POUR DÉBOGUER
                   print('=== CRÉATION RÉCLAMATION ===');
                   print('User: ${user.name} (${_getUserId(user)})');
                   print('Titre: ${titleController.text}');
@@ -394,18 +406,19 @@ class HomeScreen extends StatelessWidget {
 
                   Navigator.pop(context);
 
-                  // 👇 ATTENDRE UN PEU PUIS REDIRIGER
+                  // Rediriger vers l'écran des réclamations
                   Future.delayed(const Duration(milliseconds: 300), () {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (context) =>
-                            ComplaintsScreen(userId: _getUserId(user)),
+                        builder: (context) => ComplaintsScreen(
+                          userId: _getUserId(user),
+                        ),
                       ),
                     );
                   });
 
-                  // MESSAGE DE CONFIRMATION
+                  // Message de confirmation
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
                       content: Text(
