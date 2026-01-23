@@ -1,4 +1,5 @@
 import 'package:carpooling_app/providers/auth_provider.dart';
+import 'package:carpooling_app/reservation/manage_bookings_screen.dart';
 import 'package:carpooling_app/screens/admin/admin_dashboard_screen.dart';
 import 'package:carpooling_app/screens/home_screen.dart';
 import 'package:carpooling_app/package/my_packages_screen.dart';
@@ -8,6 +9,7 @@ import 'package:carpooling_app/vehicule/home_vehicule_screen.dart';
 import 'package:carpooling_app/screens/auth/login_screen.dart';
 import 'package:carpooling_app/package/available_packages_screen.dart';
 import 'package:carpooling_app/package/admin_packages_screen.dart';
+import 'package:carpooling_app/complaints/complaints_screen.dart';
 import 'package:provider/provider.dart';
 
 import 'package:carpooling_app/models/vehicule.dart';
@@ -32,6 +34,9 @@ class _DashboardPageState extends State<DashboardPage> {
     final authProvider = Provider.of<AuthProvider>(context);
     final user = authProvider.user;
     final bool isDriver = authProvider.isDriver;
+
+    final int userType = user?.userType ?? 0;
+    final bool isAdmin = userType == 2;
 
     return Scaffold(
       backgroundColor: Colors.grey[50],
@@ -120,8 +125,7 @@ class _DashboardPageState extends State<DashboardPage> {
 
                 // Petite stat rapide : Nombre de véhicules
                 FutureBuilder<List<Vehicule>>(
-                  future: repo
-                      .getAll(), // Plus besoin de 'as ...' car les imports sont les mêmes
+                  future: repo.getAll(),
                   builder: (context, snapshot) {
                     if (snapshot.connectionState == ConnectionState.waiting) {
                       return const SizedBox(
@@ -181,7 +185,7 @@ class _DashboardPageState extends State<DashboardPage> {
                     _refresh(); // Rafraîchir le compteur au retour
                   },
                 ),
-
+                /*
                 // Carte 2 : Accueil (anciennement Réservations)
                 // ❌ Admin n’a PAS accès à Réservations
                 if (user != null && user.userType != 2)
@@ -206,6 +210,55 @@ class _DashboardPageState extends State<DashboardPage> {
                       _refresh();
                     },
                   ),
+*/
+
+                // Réservations / Admin réservations
+                if (!isAdmin)
+                  _buildMenuCard(
+                    title: isDriver ? "Gestion du conducteur" : "Réservations",
+                    icon: isDriver ? Icons.manage_accounts : Icons.event_seat,
+                    color: Colors.purple,
+                    onTap: () async {
+                      await Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const HomeScreen()),
+                      );
+                      _refresh();
+                    },
+                  )
+                else
+                  _buildMenuCard(
+                    title: " Gestion des Réservations",
+                    icon: Icons.event_note,
+                    color: Colors.purple,
+                    onTap: () async {
+                      await Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const ManageBookingsScreen(),
+                        ), // adapte
+                      );
+                      _refresh();
+                    },
+                  ),
+
+                _buildMenuCard(
+                  title: "Réclamations",
+                  icon: Icons.report_problem,
+                  color: Colors.red,
+                  onTap: () async {
+                    await Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => ComplaintsScreen(
+                          isAdmin: isAdmin,
+                          userId: isAdmin ? null : user?.id?.toString(),
+                        ),
+                      ),
+                    );
+                    _refresh();
+                  },
+                ),
 
                 // ✅ Carte 3 : Gestion utilisateur (ADMIN ONLY)
                 if (user != null && user.userType == 2)

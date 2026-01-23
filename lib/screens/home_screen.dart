@@ -7,6 +7,10 @@ import 'package:carpooling_app/reservation/add_ride_screen.dart';
 import 'package:carpooling_app/reservation/rides_list_screen.dart';
 import 'package:carpooling_app/screens/admin/admin_dashboard_screen.dart';
 import 'package:carpooling_app/reservation/manage_bookings_screen.dart';
+import 'package:carpooling_app/providers/complaint_provider.dart';
+import 'package:carpooling_app/complaints/complaints_model.dart';
+import 'package:carpooling_app/complaints/complaints_screen.dart';
+import 'package:carpooling_app/models/user_model.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -158,10 +162,50 @@ class HomeScreen extends StatelessWidget {
                             );
                           },
                         ),
+                        // ✅ AJOUT : CARTE POUR RÉCLAMATIONS (ADMIN)
+                        _buildActionCard(
+                          context,
+                          'Gestion des réclamations',
+                          Icons.report_gmailerrorred,
+                          Colors.purple,
+                          () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) =>
+                                    const ComplaintsScreen(isAdmin: true),
+                              ),
+                            );
+                          },
+                        ),
+                        _buildActionCard(
+                          context,
+                          'Voir tous les trajets',
+                          Icons.directions_car,
+                          Colors.blue,
+                          () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => const RidesListScreen(),
+                              ),
+                            );
+                          },
+                        ),
                       ],
                     ],
                   ),
           ),
+          // ✅ BOUTON FLOATING POUR NOUVELLE RÉCLAMATION
+          floatingActionButton:
+              user?.userType !=
+                  2 // Pas pour admin
+              ? FloatingActionButton(
+                  onPressed: () => _showAddComplaintDialog(context, user!),
+                  backgroundColor: Colors.amber,
+                  child: const Icon(Icons.add_comment, color: Colors.white),
+                )
+              : null,
         );
       },
     );
@@ -200,6 +244,192 @@ class HomeScreen extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+
+  String _getUserId(User user) {
+    if (user.id == null) return 'unknown';
+    if (user.id is int) {
+      return (user.id as int).toString();
+    } else if (user.id is String) {
+      return user.id as String;
+    }
+    return 'unknown';
+  }
+
+  // ✅ DIALOGUE CORRIGÉ AVEC TYPE DE RÉCLAMATION
+  void _showAddComplaintDialog(BuildContext context, User user) {
+    final titleController = TextEditingController();
+    final descriptionController = TextEditingController();
+    final rideIdController = TextEditingController(); // 👈 POUR LE ID DE TRAJET
+    ComplaintType _selectedType = ComplaintType.other; // 👈 TYPE PAR DÉFAUT
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Nouvelle réclamation'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // 👇 SÉLECTION DU TYPE
+                DropdownButtonFormField<ComplaintType>(
+                  value: _selectedType,
+                  decoration: const InputDecoration(
+                    labelText: 'Type de réclamation',
+                    border: OutlineInputBorder(),
+                  ),
+                  items: ComplaintType.values.map((type) {
+                    return DropdownMenuItem(
+                      value: type,
+                      child: Text(type.label),
+                    );
+                  }).toList(),
+                  onChanged: (value) {
+                    if (value != null) {
+                      _selectedType = value;
+                    }
+                  },
+                ),
+                const SizedBox(height: 10),
+
+                // 👇 ID DU TRAJET (OPTIONNEL)
+                TextField(
+                  controller: rideIdController,
+                  decoration: const InputDecoration(
+                    labelText: 'ID du trajet (optionnel)',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 10),
+
+                // TITRE
+                TextField(
+                  controller: titleController,
+                  decoration: const InputDecoration(
+                    labelText: 'Titre*',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 10),
+
+                // DESCRIPTION
+                TextField(
+                  controller: descriptionController,
+                  decoration: const InputDecoration(
+                    labelText: 'Description*',
+                    border: OutlineInputBorder(),
+                  ),
+                  maxLines: 4,
+                ),
+                const SizedBox(height: 10),
+
+                const Text(
+                  '* Champs obligatoires',
+                  style: TextStyle(fontSize: 12, color: Colors.grey),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Annuler'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                // VALIDATION
+                if (titleController.text.isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Veuillez saisir un titre'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                  return;
+                }
+
+                if (descriptionController.text.isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Veuillez saisir une description'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                  return;
+                }
+
+                try {
+                  final provider = Provider.of<ComplaintProvider>(
+                    context,
+                    listen: false,
+                  );
+
+                  // 👇 CRÉATION CORRECTE DE LA RÉCLAMATION
+                  final newComplaint = Complaint(
+                    id: DateTime.now().millisecondsSinceEpoch.toString(),
+                    userId: _getUserId(user),
+                    userName: user.name,
+                    rideId: rideIdController.text.isNotEmpty
+                        ? rideIdController.text
+                        : null, // 👈 CORRECTION ICI
+                    title: titleController.text,
+                    description: descriptionController.text,
+                    type: _selectedType, // 👈 UTILISER LE TYPE SÉLECTIONNÉ
+                    status: ComplaintStatus.pending,
+                    createdAt: DateTime.now(),
+                  );
+
+                  // 👇 LOGS POUR DÉBOGUER
+                  print('=== CRÉATION RÉCLAMATION ===');
+                  print('User: ${user.name} (${_getUserId(user)})');
+                  print('Titre: ${titleController.text}');
+                  print('Type: ${_selectedType.label}');
+                  print('Description: ${descriptionController.text}');
+                  print('RideId: ${rideIdController.text}');
+
+                  // AJOUTER LA RÉCLAMATION
+                  provider.addComplaint(newComplaint);
+
+                  Navigator.pop(context);
+
+                  // 👇 ATTENDRE UN PEU PUIS REDIRIGER
+                  Future.delayed(const Duration(milliseconds: 300), () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) =>
+                            ComplaintsScreen(userId: _getUserId(user)),
+                      ),
+                    );
+                  });
+
+                  // MESSAGE DE CONFIRMATION
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        'Réclamation "${titleController.text}" créée avec succès',
+                      ),
+                      backgroundColor: Colors.green,
+                      duration: const Duration(seconds: 3),
+                    ),
+                  );
+                } catch (e) {
+                  print('❌ Erreur lors de l\'ajout: $e');
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Erreur: $e'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
+              },
+              child: const Text('Envoyer'),
+            ),
+          ],
+        );
+      },
     );
   }
 }

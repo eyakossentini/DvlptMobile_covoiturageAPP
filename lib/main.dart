@@ -1,3 +1,4 @@
+import 'package:carpooling_app/providers/complaint_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:carpooling_app/providers/auth_provider.dart';
@@ -15,10 +16,9 @@ void main() {
         ChangeNotifierProvider(create: (_) => AuthProvider()),
         ChangeNotifierProvider(create: (_) => RideProvider()),
         ChangeNotifierProvider(create: (_) => ReservationProvider()),
-         ChangeNotifierProvider(create: (_) => PackageProvider()),
-        ChangeNotifierProvider(
-          create: (_) => ManageBookingProvider(),
-        ), 
+        ChangeNotifierProvider(create: (_) => PackageProvider()),
+        ChangeNotifierProvider(create: (_) => ComplaintProvider()),
+        ChangeNotifierProvider(create: (_) => ManageBookingProvider()),
       ],
       child: const MyApp(),
     ),
